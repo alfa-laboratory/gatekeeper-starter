@@ -1,0 +1,8 @@
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-webflux',
+            'org.springframework.cloud:spring-cloud-starter-gateway',
+            'com.nimbusds:oauth2-oidc-sdk'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test',
+            'io.projectreactor:reactor-test'
+}
