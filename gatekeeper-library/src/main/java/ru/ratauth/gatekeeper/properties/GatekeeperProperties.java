@@ -1,8 +1,11 @@
 package ru.ratauth.gatekeeper.properties;
 
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.util.ArrayList;
 import java.util.List;
 
+@ConfigurationProperties("gatekeeper")
 public class GatekeeperProperties {
     private String authorizationPageUri;
     private String errorPageUri;

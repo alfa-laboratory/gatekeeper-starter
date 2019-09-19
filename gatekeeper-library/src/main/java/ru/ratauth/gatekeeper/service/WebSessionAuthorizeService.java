@@ -1,5 +1,6 @@
 package ru.ratauth.gatekeeper.service;
 
+import org.springframework.stereotype.Service;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
@@ -13,6 +14,7 @@ import java.util.Objects;
 
 import static ru.ratauth.gatekeeper.security.AuthorizationContext.GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR;
 
+@Service
 public class WebSessionAuthorizeService implements AuthorizeService {
     private final List<Client> clients;
     private final TokenEndpointService tokenEndpointService;

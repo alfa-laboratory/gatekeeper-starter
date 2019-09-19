@@ -3,12 +3,14 @@ package ru.ratauth.gatekeeper.service;
 import com.nimbusds.jose.JWSVerifier;
 import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.SignedJWT;
+import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.security.Tokens;
 
 import java.util.List;
 
+@Service
 public class IdTokenVerificationService implements TokensVerificationService {
     @Override
     public void verifyTokens(Tokens tokens, Client client) {

@@ -1,0 +1,7 @@
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-autoconfigure',
+            'org.springframework.boot:spring-boot-starter-webflux',
+            project(':gatekeeper-library')
+
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+}

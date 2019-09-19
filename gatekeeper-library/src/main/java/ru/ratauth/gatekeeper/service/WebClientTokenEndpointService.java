@@ -7,6 +7,7 @@ import com.nimbusds.oauth2.sdk.token.RefreshToken;
 import net.minidev.json.JSONObject;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,6 +18,7 @@ import ru.ratauth.gatekeeper.security.Tokens;
 
 import java.util.Map;
 
+@Service
 public class WebClientTokenEndpointService implements TokenEndpointService {
     private final WebClient webClient;
     private final String tokenEndpointUri;
