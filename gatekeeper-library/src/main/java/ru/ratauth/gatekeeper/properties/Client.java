@@ -5,6 +5,7 @@ import java.util.Set;
 
 public class Client {
     private String id;
+    private String secret;
     private Set<String> scope = new LinkedHashSet<>();
     private String defaultPageUri;
 
@@ -14,6 +15,14 @@ public class Client {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getSecret() {
+        return secret;
+    }
+
+    public void setSecret(String secret) {
+        this.secret = secret;
     }
 
     public Set<String> getScope() {
