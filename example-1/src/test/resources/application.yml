@@ -1,0 +1,26 @@
+server:
+  port: 9082
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: test-app
+          uri: http://localhost:9081/
+          predicates:
+            - Path=/sample-app/**
+          filters:
+            - StripPrefix=1
+
+gatekeeper:
+  authorization-page-uri: "http://localhost:9081/authorize"
+  error-page-uri: "http://localhost:9081/error"
+  token-endpoint-uri: "http://localhost:9081/token"
+  introspection-endpoint-uri: "http://localhost:9081/check_token"
+  revocation-endpoint-uri: "http://localhost:9081/logout"
+  clients:
+    - id: test-app
+      scope: profile
+      password: pass
+      secret: t1X23HldJAncMr3zOOY7dLp8EvKFKCIZ81C+y2z99Oo=
+      default-page-uri: "http://localhost:9082/sample-app"
