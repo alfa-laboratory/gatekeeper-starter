@@ -6,6 +6,7 @@ import java.util.Set;
 public class Client {
     private String id;
     private Set<String> scope = new LinkedHashSet<>();
+    private String defaultPageUri;
 
     public String getId() {
         return id;
@@ -21,5 +22,13 @@ public class Client {
 
     public void setScope(Set<String> scope) {
         this.scope = scope;
+    }
+
+    public String getDefaultPageUri() {
+        return defaultPageUri;
+    }
+
+    public void setDefaultPageUri(String defaultPageUri) {
+        this.defaultPageUri = defaultPageUri;
     }
 }
