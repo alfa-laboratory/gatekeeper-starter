@@ -1,0 +1,4 @@
+rootProject.name = 'gatekeeper-starter'
+include 'gatekeeper-library'
+include 'gatekeeper-spring-boot-starter'
+

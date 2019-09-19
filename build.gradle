@@ -1,0 +1,19 @@
+plugins {
+    id 'java'
+    id 'io.spring.dependency-management' version '1.0.8.RELEASE'
+    id 'org.springframework.boot' version '2.1.8.RELEASE' apply false
+}
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management'
+
+    group = 'ru.ratauth'
+    version = '0.0.1-SNAPSHOT'
+    sourceCompatibility = '11'
+    targetCompatibility = '11'
+
+    repositories {
+        jcenter()
+    }
+}
