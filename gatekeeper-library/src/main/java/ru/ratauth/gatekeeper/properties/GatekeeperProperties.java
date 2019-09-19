@@ -6,6 +6,9 @@ import java.util.List;
 public class GatekeeperProperties {
     private String authorizationPageUri;
     private String errorPageUri;
+    private String tokenEndpointUri;
+    private String introspectionEndpointUri;
+    private String revocationEndpointUri;
     private long checkTokenInterval = 30L;
     private List<Client> clients = new ArrayList<>();
 
@@ -23,6 +26,30 @@ public class GatekeeperProperties {
 
     public void setErrorPageUri(String errorPageUri) {
         this.errorPageUri = errorPageUri;
+    }
+
+    public String getTokenEndpointUri() {
+        return tokenEndpointUri;
+    }
+
+    public void setTokenEndpointUri(String tokenEndpointUri) {
+        this.tokenEndpointUri = tokenEndpointUri;
+    }
+
+    public String getIntrospectionEndpointUri() {
+        return introspectionEndpointUri;
+    }
+
+    public void setIntrospectionEndpointUri(String introspectionEndpointUri) {
+        this.introspectionEndpointUri = introspectionEndpointUri;
+    }
+
+    public String getRevocationEndpointUri() {
+        return revocationEndpointUri;
+    }
+
+    public void setRevocationEndpointUri(String revocationEndpointUri) {
+        this.revocationEndpointUri = revocationEndpointUri;
     }
 
     public long getCheckTokenInterval() {
