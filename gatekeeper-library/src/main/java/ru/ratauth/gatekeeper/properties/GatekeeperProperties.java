@@ -5,6 +5,7 @@ import java.util.List;
 
 public class GatekeeperProperties {
     private String authorizationPageUri;
+    private String errorPageUri;
     private long checkTokenInterval = 30L;
     private List<Client> clients = new ArrayList<>();
 
@@ -14,6 +15,14 @@ public class GatekeeperProperties {
 
     public void setAuthorizationPageUri(String authorizationPageUri) {
         this.authorizationPageUri = authorizationPageUri;
+    }
+
+    public String getErrorPageUri() {
+        return errorPageUri;
+    }
+
+    public void setErrorPageUri(String errorPageUri) {
+        this.errorPageUri = errorPageUri;
     }
 
     public long getCheckTokenInterval() {
