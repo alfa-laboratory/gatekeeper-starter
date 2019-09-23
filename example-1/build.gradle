@@ -1,0 +1,13 @@
+apply plugin: 'org.springframework.boot'
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-webflux',
+            project(':gatekeeper-spring-boot-starter')
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test',
+            'org.springframework.cloud:spring-cloud-contract-wiremock',
+            'io.rest-assured:rest-assured-all',
+            'io.rest-assured:spring-web-test-client',
+            'com.nimbusds:oauth2-oidc-sdk',
+            'org.yaml:snakeyaml'
+}

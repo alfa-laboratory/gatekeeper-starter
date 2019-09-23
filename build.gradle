@@ -1,3 +1,5 @@
+import org.springframework.boot.gradle.plugin.SpringBootPlugin
+
 plugins {
     id 'java'
     id 'io.spring.dependency-management' version '1.0.8.RELEASE'
@@ -13,7 +15,23 @@ allprojects {
     sourceCompatibility = '11'
     targetCompatibility = '11'
 
+    ext {
+        set('springCloudVersion', "Greenwich.SR2")
+    }
+
     repositories {
         jcenter()
+
+        dependencyManagement {
+            imports {
+                mavenBom SpringBootPlugin.BOM_COORDINATES
+                mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+            }
+            dependencies {
+                dependency 'com.nimbusds:oauth2-oidc-sdk:6.14'
+                dependency 'io.rest-assured:rest-assured-all:4.1.0'
+                dependency 'io.rest-assured:spring-web-test-client:4.1.0'
+            }
+        }
     }
 }
