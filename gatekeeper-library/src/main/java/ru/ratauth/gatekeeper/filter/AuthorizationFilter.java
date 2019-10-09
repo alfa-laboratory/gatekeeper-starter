@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebSession;
+import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.Client;
@@ -160,7 +161,9 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
             }
             String prefix = headers.getFirst(X_FORWARDED_PREFIX_HEADER);
             if (prefix != null) {
-                uriBuilder.replacePath(prefix);
+                UriComponents uriComponents = UriComponentsBuilder.fromUriString(prefix).build();
+                uriBuilder.replacePath(uriComponents.getPath());
+                uriBuilder.replaceQuery(uriComponents.getQuery());
             }
 
             context.setInitialRequestUri(uriBuilder.build().toUri());
