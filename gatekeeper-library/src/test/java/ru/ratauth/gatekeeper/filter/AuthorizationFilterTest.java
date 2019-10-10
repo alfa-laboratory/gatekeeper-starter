@@ -135,7 +135,7 @@ public class AuthorizationFilterTest {
                 .header(X_FORWARDED_PROTO_HEADER, "http")
                 .header(X_FORWARDED_HOST_HEADER, "forwarded-host")
                 .header(X_FORWARDED_PORT_HEADER, "666")
-                .header(X_FORWARDED_PREFIX_HEADER, "/forwarded-path")
+                .header(X_FORWARDED_PREFIX_HEADER, "/forwarded-path?proxy=true")
         );
         exchange.getAttributes().put(GATEWAY_ROUTE_ATTR, route);
 
@@ -143,7 +143,7 @@ public class AuthorizationFilterTest {
 
         checkAuthorizationRedirect();
 
-        assertEquals("http://forwarded-host:666/forwarded-path", getContext().getInitialRequestUri().toString());
+        assertEquals("http://forwarded-host:666/forwarded-path?proxy=true", getContext().getInitialRequestUri().toString());
     }
 
     @Test
