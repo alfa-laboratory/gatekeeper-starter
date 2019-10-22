@@ -5,6 +5,7 @@ import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
+import com.nimbusds.oauth2.sdk.token.RefreshToken;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -173,6 +174,7 @@ public class AuthorizationFilterTest {
         exchange.getSession()
                 .doOnNext(session -> {
                     AuthorizationContext context = new AuthorizationContext();
+                    tokens.setRefreshToken(new RefreshToken());
                     tokens.setAccessToken(EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(NOT_EXPIRED_LAST_CHECK_TIME);
                     context.setTokens(tokens);
@@ -195,6 +197,7 @@ public class AuthorizationFilterTest {
                 .doOnNext(session -> {
                     Tokens tokens = new Tokens();
                     AuthorizationContext context = new AuthorizationContext();
+                    tokens.setRefreshToken(new RefreshToken());
                     tokens.setAccessToken(EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(NOT_EXPIRED_LAST_CHECK_TIME);
                     context.setTokens(tokens);
@@ -242,6 +245,7 @@ public class AuthorizationFilterTest {
         exchange.getSession()
                 .doOnNext(session -> {
                     AuthorizationContext context = new AuthorizationContext();
+                    tokens.setRefreshToken(new RefreshToken());
                     tokens.setAccessToken(NOT_EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(EXPIRED_LAST_CHECK_TIME);
                     context.setTokens(tokens);
@@ -265,6 +269,7 @@ public class AuthorizationFilterTest {
         exchange.getSession()
                 .doOnNext(session -> {
                     AuthorizationContext context = new AuthorizationContext();
+                    tokens.setRefreshToken(new RefreshToken());
                     tokens.setAccessToken(NOT_EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(EXPIRED_LAST_CHECK_TIME);
                     context.setTokens(tokens);

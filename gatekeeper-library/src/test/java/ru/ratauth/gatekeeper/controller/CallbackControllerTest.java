@@ -1,11 +1,15 @@
 package ru.ratauth.gatekeeper.controller;
 
+import com.nimbusds.jwt.SignedJWT;
+import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
+import com.nimbusds.oauth2.sdk.token.RefreshToken;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.http.ResponseEntity;
 import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
+import ru.ratauth.gatekeeper.security.Tokens;
 import ru.ratauth.gatekeeper.service.AuthorizeService;
 
 import java.net.URI;
@@ -36,6 +40,12 @@ public class CallbackControllerTest {
         URI initialRequest = URI.create("http://gateway.com/sample-app/dashboard");
         when(authorizeService.getAuthorizedUserContextByCode(any(), any(), any())).then(a -> {
             AuthorizationContext context = new AuthorizationContext();
+            Tokens tokens = new Tokens();
+            tokens.setIdToken(SignedJWT.parse("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwI" +
+                    "wibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"));
+            tokens.setAccessToken(new BearerAccessToken());
+            tokens.setRefreshToken(new RefreshToken());
+            context.setTokens(tokens);
             context.setInitialRequestUri(initialRequest);
             return Mono.just(context);
         });
