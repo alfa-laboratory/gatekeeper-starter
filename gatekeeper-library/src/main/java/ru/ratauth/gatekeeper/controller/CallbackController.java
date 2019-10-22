@@ -1,5 +1,7 @@
 package ru.ratauth.gatekeeper.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,13 +11,14 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
-import ru.ratauth.gatekeeper.security.AuthorizationContext;
 import ru.ratauth.gatekeeper.service.AuthorizeService;
 
 import java.net.URI;
 
 @RestController
 public class CallbackController {
+    private Logger log = LoggerFactory.getLogger(CallbackController.class);
+
     private final AuthorizeService authorizeService;
     private final URI errorPageUri;
 
@@ -26,11 +29,33 @@ public class CallbackController {
 
     @GetMapping("/openid/authorize/{client_id}")
     public Mono<ResponseEntity<String>> callback(@PathVariable("client_id") String clientId, @RequestParam String code, ServerWebExchange exchange) {
+        log.info("handle openid connect authentication code callback");
+        log.debug("try to get user authentication context for client id {} by code {}", clientId, code);
         return authorizeService.getAuthorizedUserContextByCode(clientId, code, exchange)
-                .map(AuthorizationContext::getInitialRequestUri)
-                .onErrorReturn(errorPageUri)
-                .map(location -> ResponseEntity.status(HttpStatus.FOUND)
-                        .location(location)
-                        .build());
+                .map(context -> {
+                    log.info("success authenticate user");
+                    URI initialRequestUri = context.getInitialRequestUri();
+                    if (log.isDebugEnabled()) {
+                        String idToken = context.getTokens().getIdToken().getParsedString();
+                        String accessToken = context.getTokens().getAccessToken().getValue();
+                        String refreshToken = context.getTokens().getRefreshToken().getValue();
+                        log.debug("id token {}", idToken);
+                        log.debug("access token {}", accessToken);
+                        log.debug("refresh token {}", refreshToken);
+                        log.debug("initial request uri {}", initialRequestUri);
+                    }
+                    return initialRequestUri;
+                })
+                .onErrorResume(t -> {
+                    log.error("user authentication failed", t);
+                    log.debug("set location to error page {}", errorPageUri);
+                    return Mono.just(errorPageUri);
+                })
+                .map(location -> {
+                    log.info("redirect to {}", location);
+                    return ResponseEntity.status(HttpStatus.FOUND)
+                            .location(location)
+                            .build();
+                });
     }
 }
