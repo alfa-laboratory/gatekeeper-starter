@@ -1,5 +1,7 @@
 package ru.ratauth.gatekeeper.filter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.route.Route;
@@ -35,6 +37,8 @@ import static ru.ratauth.gatekeeper.security.AuthorizationContext.GATEKEEPER_AUT
 
 @Component
 public class AuthorizationFilter implements GlobalFilter, Ordered {
+    private Logger log = LoggerFactory.getLogger(AuthorizationFilter.class);
+
     @Override
     public int getOrder() {
         return -1;
@@ -67,9 +71,12 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        log.debug("apply gatekeeper authorization filter");
         return authorize(exchange)
                 .flatMap(authorizeResult -> {
+                    log.info("authorization redirect {}", authorizeResult.success ? "not required" : "required");
                     if (authorizeResult.success) {
+                        log.debug("continue filter chain");
                         return chain.filter(exchange);
                     }
                     return sendRedirectToAuthorizationPage(exchange, authorizeResult.client);
@@ -80,67 +87,93 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
         return exchange.getSession()
                 .flatMap(session -> {
                     Route route = exchange.getRequiredAttribute(GATEWAY_ROUTE_ATTR);
+                    log.info("search client for route id {}", route.getId());
                     Client client = clients.get(route.getId());
                     if (client != null) {
+                        log.info("client with id {} found", client.getId());
+                        log.debug("start openid connect code flow");
                         AuthorizationContext context = session.getAttributeOrDefault(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, new AuthorizationContext());
                         Tokens tokens = context.getTokens();
 
                         ServerHttpRequest request = exchange.getRequest();
                         String path = request.getPath().pathWithinApplication().value();
-
+                        log.debug("request uri {}", request.getURI());
                         if (path.endsWith("/logout")) {
+                            log.debug("request path ends with /logout");
+                            log.info("perform logout");
                             if (tokens != null) {
+                                log.debug("tokens present");
+                                log.debug("send logout request to revocation endpoint and invalidate session");
                                 return tokenEndpointService.logout(client, tokens.getRefreshToken())
-                                        .onErrorResume(t -> Mono.empty())
+                                        .onErrorResume(t -> {
+                                            log.warn("tokens revocation failed", t);
+                                            return Mono.empty();
+                                        })
                                         .then(session.invalidate())
                                         .thenReturn(new AuthorizeResult(false, client));
                             }
+                            log.debug("tokens is empty");
+                            log.debug("invalidate session");
                             return session.invalidate()
                                     .thenReturn(new AuthorizeResult(false, client));
                         }
 
                         if (tokens == null) {
+                            log.debug("tokens is empty");
                             return saveInitialRequestUri(request, session, context)
                                     .thenReturn(new AuthorizeResult(false, client));
                         }
-
+                        log.debug("access token value {}", tokens.getAccessToken().getValue());
                         Instant now = Instant.now();
+                        log.debug("current time {}", now);
                         Instant accessTokenExpirationTime = tokens.getAccessTokenExpirationTime();
+                        log.debug("access token expiration time {}", accessTokenExpirationTime);
                         if (accessTokenExpirationTime.isBefore(now)) {
-                            return tokenEndpointService.refreshAccessToken(client, tokens.getRefreshToken())
-                                    .map(accessToken -> {
-                                        tokens.setAccessToken(accessToken);
-                                        tokens.setAccessTokenLastCheckTime(Instant.now());
-                                        return new AuthorizeResult(true, client);
-                                    })
-                                    .onErrorResume(t -> saveInitialRequestUri(request, session, context)
-                                            .thenReturn(new AuthorizeResult(false, client))
-                                    );
+                            log.info("access token expired");
+                            return refreshToken(session, client, context, tokens, request);
                         }
 
                         Instant accessTokenLastCheckTime = tokens.getAccessTokenLastCheckTime();
+                        log.debug("last access token check time {}", accessTokenExpirationTime);
                         Instant checkTokenTime = accessTokenLastCheckTime.plus(Duration.ofSeconds(checkTokenInterval));
+                        log.debug("next check token time {}", checkTokenTime);
                         if (checkTokenTime.isBefore(now)) {
+                            log.info("need to check access token");
                             return tokenEndpointService.checkAccessToken(client, tokens.getAccessToken())
                                     .map(idToken -> {
+                                        log.info("success check access token");
+                                        log.debug("update id token");
                                         tokens.setIdToken(idToken);
                                         tokens.setAccessTokenLastCheckTime(Instant.now());
                                         return new AuthorizeResult(true, client);
                                     })
-                                    .onErrorResume(t1 -> tokenEndpointService.refreshAccessToken(client, tokens.getRefreshToken())
-                                            .map(accessToken -> {
-                                                tokens.setAccessToken(accessToken);
-                                                tokens.setAccessTokenLastCheckTime(Instant.now());
-                                                return new AuthorizeResult(true, client);
-                                            })
-                                            .onErrorResume(t2 -> saveInitialRequestUri(request, session, context)
-                                                    .thenReturn(new AuthorizeResult(false, client))
-                                            )
-                                    );
+                                    .onErrorResume(t -> {
+                                        log.info("access token introspection failed", t);
+                                        return refreshToken(session, client, context, tokens, request);
+                                    });
                         }
                     }
+                    log.info("client not found");
+                    log.info("ignore authorization process for this route");
                     return Mono.just(new AuthorizeResult(true, null));
                 });
+    }
+
+    private Mono<AuthorizeResult> refreshToken(WebSession session, Client client, AuthorizationContext context, Tokens tokens, ServerHttpRequest request) {
+        log.info("try to refresh access token");
+        log.debug("refresh token {}", tokens.getRefreshToken().getValue());
+        return tokenEndpointService.refreshAccessToken(client, tokens.getRefreshToken())
+                .map(accessToken -> {
+                    log.debug("success refresh token");
+                    log.debug("new access token {}", tokens.getAccessToken().getValue());
+                    tokens.setAccessToken(accessToken);
+                    tokens.setAccessTokenLastCheckTime(Instant.now());
+                    return new AuthorizeResult(true, client);
+                })
+                .doOnError(t -> log.debug("refresh token failed"))
+                .onErrorResume(t -> saveInitialRequestUri(request, session, context)
+                        .thenReturn(new AuthorizeResult(false, client))
+                );
     }
 
     private Mono<Void> saveInitialRequestUri(ServerHttpRequest request, WebSession session, AuthorizationContext context) {
@@ -149,29 +182,35 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
             HttpHeaders headers = request.getHeaders();
             String proto = headers.getFirst(X_FORWARDED_PROTO_HEADER);
             if (proto != null) {
+                log.debug("{} = {}", X_FORWARDED_PROTO_HEADER, proto);
                 uriBuilder.scheme(proto);
             }
             String host = headers.getFirst(X_FORWARDED_HOST_HEADER);
             if (host != null) {
+                log.debug("{} = {}", X_FORWARDED_HOST_HEADER, host);
                 uriBuilder.host(host);
             }
             String port = headers.getFirst(X_FORWARDED_PORT_HEADER);
             if (port != null && !port.isBlank()) {
+                log.debug("{} = {}", X_FORWARDED_PORT_HEADER, port);
                 uriBuilder.port(port);
             }
             String prefix = headers.getFirst(X_FORWARDED_PREFIX_HEADER);
             if (prefix != null) {
+                log.debug("{} = {}", X_FORWARDED_PREFIX_HEADER, prefix);
                 UriComponents uriComponents = UriComponentsBuilder.fromUriString(prefix).build();
                 uriBuilder.replacePath(uriComponents.getPath());
                 uriBuilder.replaceQuery(uriComponents.getQuery());
             }
-
             context.setInitialRequestUri(uriBuilder.build().toUri());
+            log.debug("save initial request {}", context.getInitialRequestUri());
             session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
         });
     }
 
     private Mono<Void> sendRedirectToAuthorizationPage(ServerWebExchange exchange, Client client) {
+        log.info("send redirect to authorization page");
+
         Set<String> scopes = new LinkedHashSet<>();
         scopes.add("openid");
         scopes.addAll(client.getScope());
@@ -182,6 +221,8 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                 .queryParam("scope", StringUtils.collectionToDelimitedString(scopes, " "))
                 .build()
                 .toUri();
+
+        log.debug("authorization redirect uri {}", location.toString());
 
         return Mono.fromRunnable(() -> {
             ServerHttpResponse response = exchange.getResponse();
