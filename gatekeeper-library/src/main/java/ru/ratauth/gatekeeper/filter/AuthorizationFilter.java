@@ -13,13 +13,13 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.WebSession;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
+import ru.ratauth.gatekeeper.security.ClientAuthorization;
 import ru.ratauth.gatekeeper.security.Tokens;
 import ru.ratauth.gatekeeper.service.TokenEndpointService;
 
@@ -92,8 +92,12 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                     if (client != null) {
                         log.info("client with id {} found", client.getId());
                         log.debug("start openid connect code flow");
-                        AuthorizationContext context = session.getAttributeOrDefault(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, new AuthorizationContext());
-                        Tokens tokens = context.getTokens();
+
+                        AuthorizationContext context = (AuthorizationContext) session.getAttributes()
+                                .computeIfAbsent(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, key -> new AuthorizationContext());
+                        ClientAuthorization clientAuthorization = context.getClientAuthorizations()
+                                .computeIfAbsent(client.getId(), key -> new ClientAuthorization());
+                        Tokens clientTokens = clientAuthorization.getTokens();
 
                         ServerHttpRequest request = exchange.getRequest();
                         String path = request.getPath().pathWithinApplication().value();
@@ -101,55 +105,55 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                         if (path.endsWith("/logout")) {
                             log.debug("request path ends with /logout");
                             log.info("perform logout");
-                            if (tokens != null) {
-                                log.debug("tokens present");
+                            if (clientTokens != null) {
+                                log.debug("clientTokens present");
                                 log.debug("send logout request to revocation endpoint and invalidate session");
-                                return tokenEndpointService.logout(client, tokens.getRefreshToken())
+                                return tokenEndpointService.logout(client, clientTokens.getRefreshToken())
                                         .onErrorResume(t -> {
-                                            log.warn("tokens revocation failed", t);
+                                            log.warn("clientTokens revocation failed", t);
                                             return Mono.empty();
                                         })
                                         .then(session.invalidate())
                                         .thenReturn(new AuthorizeResult(false, client));
                             }
-                            log.debug("tokens is empty");
+                            log.debug("clientTokens is empty");
                             log.debug("invalidate session");
                             return session.invalidate()
                                     .thenReturn(new AuthorizeResult(false, client));
                         }
 
-                        if (tokens == null) {
-                            log.debug("tokens is empty");
-                            return saveInitialRequestUri(request, session, context)
+                        if (clientTokens == null) {
+                            log.debug("clientTokens is empty");
+                            return saveInitialRequestUri(request, clientAuthorization)
                                     .thenReturn(new AuthorizeResult(false, client));
                         }
-                        log.debug("access token value {}", tokens.getAccessToken().getValue());
+                        log.debug("access token value {}", clientTokens.getAccessToken().getValue());
                         Instant now = Instant.now();
                         log.debug("current time {}", now);
-                        Instant accessTokenExpirationTime = tokens.getAccessTokenExpirationTime();
+                        Instant accessTokenExpirationTime = clientTokens.getAccessTokenExpirationTime();
                         log.debug("access token expiration time {}", accessTokenExpirationTime);
                         if (accessTokenExpirationTime.isBefore(now)) {
                             log.info("access token expired");
-                            return refreshToken(session, client, context, tokens, request);
+                            return refreshToken(client, clientAuthorization, clientTokens, request);
                         }
 
-                        Instant accessTokenLastCheckTime = tokens.getAccessTokenLastCheckTime();
+                        Instant accessTokenLastCheckTime = clientTokens.getAccessTokenLastCheckTime();
                         log.debug("last access token check time {}", accessTokenExpirationTime);
                         Instant checkTokenTime = accessTokenLastCheckTime.plus(Duration.ofSeconds(checkTokenInterval));
                         log.debug("next check token time {}", checkTokenTime);
                         if (checkTokenTime.isBefore(now)) {
                             log.info("need to check access token");
-                            return tokenEndpointService.checkAccessToken(client, tokens.getAccessToken())
+                            return tokenEndpointService.checkAccessToken(client, clientTokens.getAccessToken())
                                     .map(idToken -> {
                                         log.info("success check access token");
                                         log.debug("update id token");
-                                        tokens.setIdToken(idToken);
-                                        tokens.setAccessTokenLastCheckTime(Instant.now());
+                                        clientTokens.setIdToken(idToken);
+                                        clientTokens.setAccessTokenLastCheckTime(Instant.now());
                                         return new AuthorizeResult(true, client);
                                     })
                                     .onErrorResume(t -> {
                                         log.info("access token introspection failed", t);
-                                        return refreshToken(session, client, context, tokens, request);
+                                        return refreshToken(client, clientAuthorization, clientTokens, request);
                                     });
                         }
                     }
@@ -159,7 +163,7 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                 });
     }
 
-    private Mono<AuthorizeResult> refreshToken(WebSession session, Client client, AuthorizationContext context, Tokens tokens, ServerHttpRequest request) {
+    private Mono<AuthorizeResult> refreshToken(Client client, ClientAuthorization clientAuthorization, Tokens tokens, ServerHttpRequest request) {
         log.info("try to refresh access token");
         log.debug("refresh token {}", tokens.getRefreshToken().getValue());
         return tokenEndpointService.refreshAccessToken(client, tokens.getRefreshToken())
@@ -171,12 +175,12 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                     return new AuthorizeResult(true, client);
                 })
                 .doOnError(t -> log.debug("refresh token failed"))
-                .onErrorResume(t -> saveInitialRequestUri(request, session, context)
+                .onErrorResume(t -> saveInitialRequestUri(request, clientAuthorization)
                         .thenReturn(new AuthorizeResult(false, client))
                 );
     }
 
-    private Mono<Void> saveInitialRequestUri(ServerHttpRequest request, WebSession session, AuthorizationContext context) {
+    private Mono<Void> saveInitialRequestUri(ServerHttpRequest request, ClientAuthorization clientAuthorization) {
         return Mono.fromRunnable(() -> {
             UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUri(request.getURI());
             HttpHeaders headers = request.getHeaders();
@@ -202,9 +206,8 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                 uriBuilder.replacePath(uriComponents.getPath());
                 uriBuilder.replaceQuery(uriComponents.getQuery());
             }
-            context.setInitialRequestUri(uriBuilder.build().toUri());
-            log.debug("save initial request {}", context.getInitialRequestUri());
-            session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
+            clientAuthorization.setInitialRequestUri(uriBuilder.build().toUri());
+            log.debug("save initial request {}", clientAuthorization.getInitialRequestUri());
         });
     }
 

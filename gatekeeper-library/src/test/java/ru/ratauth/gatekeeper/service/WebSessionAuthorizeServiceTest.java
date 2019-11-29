@@ -11,6 +11,7 @@ import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
+import ru.ratauth.gatekeeper.security.ClientAuthorization;
 import ru.ratauth.gatekeeper.security.Tokens;
 
 import java.net.URI;
@@ -54,7 +55,9 @@ public class WebSessionAuthorizeServiceTest {
         String initialSessionId = exchange.getSession()
                 .doOnNext(session -> {
                     AuthorizationContext context = new AuthorizationContext();
-                    context.setInitialRequestUri(URI.create(INITIAL_REQUEST_URI));
+                    ClientAuthorization clientAuthorization = new ClientAuthorization();
+                    clientAuthorization.setInitialRequestUri(URI.create(INITIAL_REQUEST_URI));
+                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
                     session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
                 })
                 .map(WebSession::getId)
@@ -63,8 +66,8 @@ public class WebSessionAuthorizeServiceTest {
         AuthorizationContext context = authorizeService.getAuthorizedUserContextByCode(CLIENT_ID, CODE, exchange).block();
 
         assertNotNull(context);
-        assertEquals(ACCESS_TOKEN, context.getTokens().getAccessToken());
-        assertEquals(INITIAL_REQUEST_URI, context.getInitialRequestUri().toString());
+        assertEquals(ACCESS_TOKEN, context.getClientAuthorizations().get(CLIENT_ID).getTokens().getAccessToken());
+        assertEquals(INITIAL_REQUEST_URI, context.getClientAuthorizations().get(CLIENT_ID).getInitialRequestUri().toString());
         String sessionId = exchange.getSession().map(WebSession::getId).block();
         assertNotEquals(initialSessionId, sessionId);
     }
@@ -75,7 +78,7 @@ public class WebSessionAuthorizeServiceTest {
         AuthorizationContext context = authorizeService.getAuthorizedUserContextByCode(CLIENT_ID, CODE, exchange).block();
 
         assertNotNull(context);
-        assertEquals(ACCESS_TOKEN, context.getTokens().getAccessToken());
-        assertEquals(DEFAULT_PAGE_URI, context.getInitialRequestUri().toString());
+        assertEquals(ACCESS_TOKEN, context.getClientAuthorizations().get(CLIENT_ID).getTokens().getAccessToken());
+        assertEquals(DEFAULT_PAGE_URI, context.getClientAuthorizations().get(CLIENT_ID).getInitialRequestUri().toString());
     }
 }
