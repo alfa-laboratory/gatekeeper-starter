@@ -32,13 +32,14 @@ public class CallbackController {
         log.info("handle openid connect authentication code callback");
         log.debug("try to get user authentication context for client id {} by code {}", clientId, code);
         return authorizeService.getAuthorizedUserContextByCode(clientId, code, exchange)
-                .map(context -> {
+                .map(authorizationContext -> authorizationContext.getClientAuthorizations().get(clientId))
+                .map(clientAuthorization -> {
                     log.info("success authenticate user");
-                    URI initialRequestUri = context.getInitialRequestUri();
+                    URI initialRequestUri = clientAuthorization.getInitialRequestUri();
                     if (log.isDebugEnabled()) {
-                        String idToken = context.getTokens().getIdToken().getParsedString();
-                        String accessToken = context.getTokens().getAccessToken().getValue();
-                        String refreshToken = context.getTokens().getRefreshToken().getValue();
+                        String idToken = clientAuthorization.getTokens().getIdToken().getParsedString();
+                        String accessToken = clientAuthorization.getTokens().getAccessToken().getValue();
+                        String refreshToken = clientAuthorization.getTokens().getRefreshToken().getValue();
                         log.debug("id token {}", idToken);
                         log.debug("access token {}", accessToken);
                         log.debug("refresh token {}", refreshToken);

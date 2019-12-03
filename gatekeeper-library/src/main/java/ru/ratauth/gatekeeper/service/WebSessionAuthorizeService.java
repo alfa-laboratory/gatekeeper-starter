@@ -9,6 +9,7 @@ import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
+import ru.ratauth.gatekeeper.security.ClientAuthorization;
 
 import java.time.Instant;
 import java.util.List;
@@ -38,17 +39,21 @@ public class WebSessionAuthorizeService implements AuthorizeService {
                     log.debug("client id {}", clientId);
                     log.debug("authorization code {}", code);
                     log.debug("get or create authorization context for current session");
-                    AuthorizationContext context = session.getAttributeOrDefault(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, new AuthorizationContext());
+                    AuthorizationContext context = (AuthorizationContext) session
+                            .getAttributes()
+                            .computeIfAbsent(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, key -> new AuthorizationContext());
                     log.debug("check client id for existence");
                     Client client = clients.stream()
                             .filter(c -> Objects.equals(clientId, c.getId()))
                             .findFirst()
                             .orElseThrow();
-                    log.debug("initial request uri {}", context.getInitialRequestUri());
-                    if (context.getInitialRequestUri() == null) {
+                    ClientAuthorization clientAuthorization = context.getClientAuthorizations()
+                            .computeIfAbsent(client.getId(), key -> new ClientAuthorization());
+                    log.debug("initial request uri {}", clientAuthorization.getInitialRequestUri());
+                    if (clientAuthorization.getInitialRequestUri() == null) {
                         log.debug("initial request uri is empty");
                         log.debug("send to default page {}", client.getDefaultPageUri());
-                        context.setInitialRequestUri(UriComponentsBuilder.fromUriString(client.getDefaultPageUri())
+                        clientAuthorization.setInitialRequestUri(UriComponentsBuilder.fromUriString(client.getDefaultPageUri())
                                 .build()
                                 .toUri());
                     }
@@ -59,7 +64,7 @@ public class WebSessionAuthorizeService implements AuthorizeService {
                                 log.debug("try to verify tokens");
                                 tokensVerificationService.verifyTokens(tokens, client);
                                 log.info("success verify tokens");
-                                context.setTokens(tokens);
+                                clientAuthorization.setTokens(tokens);
                                 tokens.setAccessTokenLastCheckTime(Instant.now());
                                 return Mono.just(context);
                             });

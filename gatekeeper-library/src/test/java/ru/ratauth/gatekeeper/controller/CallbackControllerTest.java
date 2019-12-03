@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
+import ru.ratauth.gatekeeper.security.ClientAuthorization;
 import ru.ratauth.gatekeeper.security.Tokens;
 import ru.ratauth.gatekeeper.service.AuthorizeService;
 
@@ -45,12 +46,14 @@ public class CallbackControllerTest {
                     "wibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"));
             tokens.setAccessToken(new BearerAccessToken());
             tokens.setRefreshToken(new RefreshToken());
-            context.setTokens(tokens);
-            context.setInitialRequestUri(initialRequest);
+            ClientAuthorization clientAuthorization = new ClientAuthorization();
+            clientAuthorization.setTokens(tokens);
+            clientAuthorization.setInitialRequestUri(initialRequest);
+            context.getClientAuthorizations().put("test-app", clientAuthorization);
             return Mono.just(context);
         });
         //zero logic, just delegate to authorize service
-        ResponseEntity<String> response = callbackController.callback(null, null, null).block();
+        ResponseEntity<String> response = callbackController.callback("test-app", null, null).block();
         assert response != null;
         assertEquals(FOUND, response.getStatusCode());
         assertEquals(initialRequest, response.getHeaders().getLocation());

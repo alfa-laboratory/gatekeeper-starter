@@ -23,6 +23,7 @@ import reactor.test.StepVerifier;
 import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
+import ru.ratauth.gatekeeper.security.ClientAuthorization;
 import ru.ratauth.gatekeeper.security.Tokens;
 import ru.ratauth.gatekeeper.service.TokenEndpointService;
 
@@ -121,7 +122,8 @@ public class AuthorizationFilterTest {
 
         checkAuthorizationRedirect();
 
-        assertEquals(INITIAL_REQUEST_URI, getContext().getInitialRequestUri().toString());
+        assertEquals(INITIAL_REQUEST_URI, getContext().getClientAuthorizations().get(CLIENT_ID)
+                .getInitialRequestUri().toString());
     }
 
     private AuthorizationContext getContext() {
@@ -144,7 +146,8 @@ public class AuthorizationFilterTest {
 
         checkAuthorizationRedirect();
 
-        assertEquals("http://forwarded-host:666/forwarded-path?proxy=true", getContext().getInitialRequestUri().toString());
+        assertEquals("http://forwarded-host:666/forwarded-path?proxy=true", getContext().getClientAuthorizations().get(CLIENT_ID)
+                .getInitialRequestUri().toString());
     }
 
     @Test
@@ -155,7 +158,9 @@ public class AuthorizationFilterTest {
                     Tokens tokens = new Tokens();
                     tokens.setAccessToken(NOT_EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(NOT_EXPIRED_LAST_CHECK_TIME);
-                    context.setTokens(tokens);
+                    ClientAuthorization clientAuthorization = new ClientAuthorization();
+                    clientAuthorization.setTokens(tokens);
+                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
                     session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
                 })
                 .block();
@@ -177,7 +182,9 @@ public class AuthorizationFilterTest {
                     tokens.setRefreshToken(new RefreshToken());
                     tokens.setAccessToken(EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(NOT_EXPIRED_LAST_CHECK_TIME);
-                    context.setTokens(tokens);
+                    ClientAuthorization clientAuthorization = new ClientAuthorization();
+                    clientAuthorization.setTokens(tokens);
+                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
                     session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
                 })
                 .block();
@@ -200,7 +207,9 @@ public class AuthorizationFilterTest {
                     tokens.setRefreshToken(new RefreshToken());
                     tokens.setAccessToken(EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(NOT_EXPIRED_LAST_CHECK_TIME);
-                    context.setTokens(tokens);
+                    ClientAuthorization clientAuthorization = new ClientAuthorization();
+                    clientAuthorization.setTokens(tokens);
+                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
                     session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
                 })
                 .block();
@@ -209,7 +218,8 @@ public class AuthorizationFilterTest {
 
         checkAuthorizationRedirect();
 
-        assertEquals(INITIAL_REQUEST_URI, getContext().getInitialRequestUri().toString());
+        assertEquals(INITIAL_REQUEST_URI, getContext().getClientAuthorizations().get(CLIENT_ID)
+                .getInitialRequestUri().toString());
     }
 
     @Test
@@ -223,7 +233,9 @@ public class AuthorizationFilterTest {
                     AuthorizationContext context = new AuthorizationContext();
                     tokens.setAccessToken(NOT_EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(EXPIRED_LAST_CHECK_TIME);
-                    context.setTokens(tokens);
+                    ClientAuthorization clientAuthorization = new ClientAuthorization();
+                    clientAuthorization.setTokens(tokens);
+                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
                     session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
                 })
                 .block();
@@ -248,7 +260,9 @@ public class AuthorizationFilterTest {
                     tokens.setRefreshToken(new RefreshToken());
                     tokens.setAccessToken(NOT_EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(EXPIRED_LAST_CHECK_TIME);
-                    context.setTokens(tokens);
+                    ClientAuthorization clientAuthorization = new ClientAuthorization();
+                    clientAuthorization.setTokens(tokens);
+                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
                     session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
                 })
                 .block();
@@ -272,7 +286,9 @@ public class AuthorizationFilterTest {
                     tokens.setRefreshToken(new RefreshToken());
                     tokens.setAccessToken(NOT_EXPIRED_ACCESS_TOKEN);
                     tokens.setAccessTokenLastCheckTime(EXPIRED_LAST_CHECK_TIME);
-                    context.setTokens(tokens);
+                    ClientAuthorization clientAuthorization = new ClientAuthorization();
+                    clientAuthorization.setTokens(tokens);
+                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
                     session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
                 })
                 .block();
@@ -281,7 +297,8 @@ public class AuthorizationFilterTest {
 
         checkAuthorizationRedirect();
 
-        assertEquals(INITIAL_REQUEST_URI, getContext().getInitialRequestUri().toString());
+        assertEquals(INITIAL_REQUEST_URI, getContext().getClientAuthorizations().get(CLIENT_ID)
+                .getInitialRequestUri().toString());
     }
 
     @Test
@@ -303,7 +320,9 @@ public class AuthorizationFilterTest {
                 .doOnNext(session -> {
                     Tokens tokens = new Tokens();
                     AuthorizationContext context = new AuthorizationContext();
-                    context.setTokens(tokens);
+                    ClientAuthorization clientAuthorization = new ClientAuthorization();
+                    clientAuthorization.setTokens(tokens);
+                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
                     session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
                 })
                 .block();
