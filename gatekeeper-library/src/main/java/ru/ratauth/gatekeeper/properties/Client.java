@@ -9,6 +9,7 @@ public class Client {
     private String secret;
     private Set<String> scope = new LinkedHashSet<>();
     private String defaultPageUri;
+    private boolean defaultPageUriPriority;
 
     public String getId() {
         return id;
@@ -48,5 +49,13 @@ public class Client {
 
     public void setDefaultPageUri(String defaultPageUri) {
         this.defaultPageUri = defaultPageUri;
+    }
+
+    public boolean isDefaultPageUriPriority() {
+        return defaultPageUriPriority;
+    }
+
+    public void setDefaultPageUriPriority(boolean defaultPageUriPriority) {
+        this.defaultPageUriPriority = defaultPageUriPriority;
     }
 }

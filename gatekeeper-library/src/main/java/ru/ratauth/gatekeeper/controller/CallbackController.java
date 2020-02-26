@@ -10,10 +10,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.service.AuthorizeService;
 
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Objects;
 
 @RestController
 public class CallbackController {
@@ -21,10 +25,15 @@ public class CallbackController {
 
     private final AuthorizeService authorizeService;
     private final URI errorPageUri;
+    private final List<Client> clients;
 
-    public CallbackController(AuthorizeService authorizeService, GatekeeperProperties properties) {
+    public CallbackController(
+            AuthorizeService authorizeService,
+            GatekeeperProperties properties
+    ) {
         this.authorizeService = authorizeService;
         this.errorPageUri = URI.create(properties.getErrorPageUri());
+        this.clients = properties.getClients();
     }
 
     @GetMapping("/openid/authorize/{client_id}")
@@ -36,6 +45,8 @@ public class CallbackController {
                 .map(clientAuthorization -> {
                     log.info("success authenticate user");
                     URI initialRequestUri = clientAuthorization.getInitialRequestUri();
+                    Client client = getClientById(clientId);
+                    URI defaultPageUri = getDefaultPageUri(client);
                     if (log.isDebugEnabled()) {
                         String idToken = clientAuthorization.getTokens().getIdToken().getParsedString();
                         String accessToken = clientAuthorization.getTokens().getAccessToken().getValue();
@@ -44,8 +55,9 @@ public class CallbackController {
                         log.debug("access token {}", accessToken);
                         log.debug("refresh token {}", refreshToken);
                         log.debug("initial request uri {}", initialRequestUri);
+                        log.debug("default page uri {}", defaultPageUri);
                     }
-                    return initialRequestUri;
+                    return client.isDefaultPageUriPriority() && defaultPageUri != null ? defaultPageUri : initialRequestUri;
                 })
                 .onErrorResume(t -> {
                     log.error("user authentication failed", t);
@@ -58,5 +70,22 @@ public class CallbackController {
                             .location(location)
                             .build();
                 });
+    }
+
+    private URI getDefaultPageUri(Client client) {
+        URI defaultPageUri = null;
+        try {
+            defaultPageUri = new URI(client.getDefaultPageUri());
+        } catch (URISyntaxException e) {
+            log.error("Can not parse default page uri property. Exception:", e);
+        }
+        return defaultPageUri;
+    }
+
+    private Client getClientById(String clientId) {
+        return clients.stream()
+                .filter(c -> Objects.equals(clientId, c.getId()))
+                .findFirst()
+                .orElseThrow();
     }
 }

@@ -37,6 +37,8 @@
 Secret для валидации ID Token по алгоритму HS256
 #### default-page-uri
 Ссылка на страницу - куда будет выполнена переадресация в случае потери/отсутсвия первоначального запроса к Gateway
+#### default-page-uri-priority
+Принимает значения true или false. Если флаг активен, то после успешной аутентификации клиент получит редирект на default-page-uri
 
 ### Пример yml конфигурации
 Описание конфигурации Spring Cloud Gateway: https://cloud.spring.io/spring-cloud-gateway/reference/html/#gateway-request-predicates-factories
