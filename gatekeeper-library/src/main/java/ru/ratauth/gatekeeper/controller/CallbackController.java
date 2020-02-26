@@ -15,7 +15,6 @@ import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.service.AuthorizeService;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Objects;
 
@@ -73,10 +72,14 @@ public class CallbackController {
     }
 
     private URI getDefaultPageUri(Client client) {
+        if (client.getDefaultPageUri() == null) {
+            return null;
+        }
+
         URI defaultPageUri = null;
         try {
             defaultPageUri = new URI(client.getDefaultPageUri());
-        } catch (URISyntaxException e) {
+        } catch (Exception e) {
             log.error("Can not parse default page uri property. Exception:", e);
         }
         return defaultPageUri;
