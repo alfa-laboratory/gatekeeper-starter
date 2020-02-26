@@ -26,6 +26,7 @@ import static org.springframework.http.HttpStatus.FOUND;
 public class CallbackControllerTest {
     private static final String ERROR_PAGE_URI = "https://authorization-server.com/error";
     private static final String DEFAULT_PAGE_URI = "http://gateway.com/sample-app/default-page";
+    private static final String CLIENT_ID = "test-app";
 
     private AuthorizeService authorizeService;
     private CallbackController callbackController;
@@ -33,9 +34,7 @@ public class CallbackControllerTest {
     @Before
     public void init() {
         authorizeService = mock(AuthorizeService.class);
-        GatekeeperProperties properties = new GatekeeperProperties();
-        properties.setErrorPageUri(ERROR_PAGE_URI);
-        callbackController = new CallbackController(authorizeService, properties);
+        callbackController = new CallbackController(authorizeService, buildGatekeeperProperties(false));
     }
 
     @Test
@@ -51,11 +50,11 @@ public class CallbackControllerTest {
             ClientAuthorization clientAuthorization = new ClientAuthorization();
             clientAuthorization.setTokens(tokens);
             clientAuthorization.setInitialRequestUri(initialRequest);
-            context.getClientAuthorizations().put("test-app", clientAuthorization);
+            context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
             return Mono.just(context);
         });
         //zero logic, just delegate to authorize service
-        ResponseEntity<String> response = callbackController.callback("test-app", null, null).block();
+        ResponseEntity<String> response = callbackController.callback(CLIENT_ID, null, null).block();
         assert response != null;
         assertEquals(FOUND, response.getStatusCode());
         assertEquals(initialRequest, response.getHeaders().getLocation());
@@ -63,14 +62,7 @@ public class CallbackControllerTest {
 
     @Test
     public void shouldRedirectToDefaultUri() {
-        Client client = new Client();
-        client.setDefaultPageUri(DEFAULT_PAGE_URI);
-        client.setDefaultPageUriPriority(true);
-        client.setId("test-app");
-        GatekeeperProperties properties = new GatekeeperProperties();
-        properties.getClients().add(client);
-        properties.setErrorPageUri(ERROR_PAGE_URI);
-        CallbackController callbackController = new CallbackController(authorizeService, properties);
+        CallbackController callbackController = new CallbackController(authorizeService, buildGatekeeperProperties(true));
 
         URI initialRequest = URI.create("http://gateway.com/sample-app/dashboard");
         when(authorizeService.getAuthorizedUserContextByCode(any(), any(), any())).then(a -> {
@@ -83,10 +75,10 @@ public class CallbackControllerTest {
             ClientAuthorization clientAuthorization = new ClientAuthorization();
             clientAuthorization.setTokens(tokens);
             clientAuthorization.setInitialRequestUri(initialRequest);
-            context.getClientAuthorizations().put("test-app", clientAuthorization);
+            context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
             return Mono.just(context);
         });
-        ResponseEntity<String> response = callbackController.callback("test-app", null, null).block();
+        ResponseEntity<String> response = callbackController.callback(CLIENT_ID, null, null).block();
 
         assert response != null;
         assertEquals(FOUND, response.getStatusCode());
@@ -100,5 +92,18 @@ public class CallbackControllerTest {
         assert response != null;
         assertEquals(FOUND, response.getStatusCode());
         assertEquals(ERROR_PAGE_URI, Objects.requireNonNull(response.getHeaders().getLocation()).toString());
+    }
+
+    private GatekeeperProperties buildGatekeeperProperties(boolean withDefaultPage) {
+        Client client = new Client();
+        if (withDefaultPage) {
+            client.setDefaultPageUri(DEFAULT_PAGE_URI);
+            client.setDefaultPageUriPriority(true);
+        }
+        client.setId(CLIENT_ID);
+        GatekeeperProperties properties = new GatekeeperProperties();
+        properties.getClients().add(client);
+        properties.setErrorPageUri(ERROR_PAGE_URI);
+        return properties;
     }
 }
