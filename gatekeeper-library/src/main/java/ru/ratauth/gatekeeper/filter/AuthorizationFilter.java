@@ -194,11 +194,15 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                 log.debug("{} = {}", X_FORWARDED_HOST_HEADER, host);
                 uriBuilder.host(host);
             }
-            String port = headers.getFirst(X_FORWARDED_PORT_HEADER);
-            if (port != null && !port.isBlank()) {
-                log.debug("{} = {}", X_FORWARDED_PORT_HEADER, port);
-                uriBuilder.port(port);
-            }
+            /*
+            TODO: у некоторых команд в этом параметре прилетает порт 80 хотя в X-Forwarded-Proto https
+                  из-за невозможности установить причину такого поведения временно делается фикс на нашей стороне
+            */
+//            String port = headers.getFirst(X_FORWARDED_PORT_HEADER);
+//            if (port != null && !port.isBlank()) {
+//                log.debug("{} = {}", X_FORWARDED_PORT_HEADER, port);
+//                uriBuilder.port(port);
+//            }
             String prefix = headers.getFirst(X_FORWARDED_PREFIX_HEADER);
             if (prefix != null) {
                 log.debug("{} = {}", X_FORWARDED_PREFIX_HEADER, prefix);
