@@ -156,6 +156,8 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                                         return refreshToken(client, clientAuthorization, clientTokens, request);
                                     });
                         }
+                        log.debug("request success authorized for client: {}", client.getId());
+                        return Mono.just(new AuthorizeResult(true, client));
                     }
                     log.info("client not found");
                     log.info("ignore authorization process for this route");
