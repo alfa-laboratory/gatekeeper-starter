@@ -12,6 +12,7 @@ public class Tokens implements Serializable {
     private BearerAccessToken accessToken;
     private RefreshToken refreshToken;
     private SignedJWT idToken;
+    private String sessionId;
 
     private Instant accessTokenExpirationTime;
     private Instant accessTokenLastCheckTime;
@@ -51,5 +52,13 @@ public class Tokens implements Serializable {
 
     public void setAccessTokenLastCheckTime(Instant accessTokenLastCheckTime) {
         this.accessTokenLastCheckTime = accessTokenLastCheckTime;
+    }
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
     }
 }

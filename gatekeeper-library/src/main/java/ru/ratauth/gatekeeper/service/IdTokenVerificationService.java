@@ -14,7 +14,7 @@ import java.util.List;
 
 @Service
 public class IdTokenVerificationService implements TokensVerificationService {
-    private Logger log = LoggerFactory.getLogger(IdTokenVerificationService.class);
+    private final Logger log = LoggerFactory.getLogger(IdTokenVerificationService.class);
 
     @Override
     public void verifyTokens(Tokens tokens, Client client) {
