@@ -4,6 +4,7 @@ import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
 import com.nimbusds.oauth2.sdk.token.RefreshToken;
+import lombok.extern.slf4j.Slf4j;
 import net.minidev.json.JSONObject;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
@@ -18,8 +19,12 @@ import ru.ratauth.gatekeeper.security.Tokens;
 
 import java.util.Map;
 
+@Slf4j
 @Service
 public class WebClientTokenEndpointService implements TokenEndpointService {
+
+    private final static String SESSION_ID = "sid";
+
     private final WebClient webClient;
     private final String tokenEndpointUri;
     private final String introspectionEndpointUri;
@@ -58,6 +63,7 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
                         tokens.setAccessToken(accessToken);
                         tokens.setRefreshToken(refreshToken);
                         tokens.setIdToken(idToken);
+                        tokens.setSessionId(idToken.getJWTClaimsSet().getStringClaim(SESSION_ID));
                         return tokens;
                     } catch (Exception e) {
                         throw new RuntimeException(e);

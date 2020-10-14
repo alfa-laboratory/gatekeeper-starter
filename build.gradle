@@ -28,6 +28,7 @@ allprojects {
                 mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
             }
             dependencies {
+                dependency 'org.projectlombok:lombok:1.18.12'
                 dependency 'com.nimbusds:oauth2-oidc-sdk:6.14'
                 dependency 'io.rest-assured:rest-assured-all:4.1.0'
                 dependency 'io.rest-assured:spring-web-test-client:4.1.0'
