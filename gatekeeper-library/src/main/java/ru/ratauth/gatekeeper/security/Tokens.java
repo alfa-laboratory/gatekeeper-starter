@@ -9,6 +9,9 @@ import java.time.Duration;
 import java.time.Instant;
 
 public class Tokens implements Serializable {
+
+    static final long serialVersionUID = 2798694009231615899L;
+
     private BearerAccessToken accessToken;
     private RefreshToken refreshToken;
     private SignedJWT idToken;

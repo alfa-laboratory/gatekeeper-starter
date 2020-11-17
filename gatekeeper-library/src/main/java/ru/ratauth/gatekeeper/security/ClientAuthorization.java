@@ -4,6 +4,9 @@ import java.io.Serializable;
 import java.net.URI;
 
 public class ClientAuthorization implements Serializable {
+
+    private static final long serialVersionUID = -5456062197422931197L;
+
     private Tokens tokens;
     private URI initialRequestUri;
 
