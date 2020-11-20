@@ -9,9 +9,13 @@ import java.time.Duration;
 import java.time.Instant;
 
 public class Tokens implements Serializable {
+
+    static final long serialVersionUID = 2798694009231615899L;
+
     private BearerAccessToken accessToken;
     private RefreshToken refreshToken;
     private SignedJWT idToken;
+    private String sessionId;
 
     private Instant accessTokenExpirationTime;
     private Instant accessTokenLastCheckTime;
@@ -51,5 +55,13 @@ public class Tokens implements Serializable {
 
     public void setAccessTokenLastCheckTime(Instant accessTokenLastCheckTime) {
         this.accessTokenLastCheckTime = accessTokenLastCheckTime;
+    }
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
     }
 }

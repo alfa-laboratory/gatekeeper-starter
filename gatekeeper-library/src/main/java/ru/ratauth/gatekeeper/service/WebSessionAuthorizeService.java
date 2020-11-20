@@ -19,16 +19,21 @@ import static ru.ratauth.gatekeeper.security.AuthorizationContext.GATEKEEPER_AUT
 
 @Service
 public class WebSessionAuthorizeService implements AuthorizeService {
-    private Logger log = LoggerFactory.getLogger(WebSessionAuthorizeService.class);
+    private final Logger log = LoggerFactory.getLogger(WebSessionAuthorizeService.class);
 
     private final List<Client> clients;
     private final TokenEndpointService tokenEndpointService;
     private final TokensVerificationService tokensVerificationService;
+    private final SessionIdRepository sessionIdRepository;
 
-    public WebSessionAuthorizeService(GatekeeperProperties properties, TokenEndpointService tokenEndpointService, TokensVerificationService tokensVerificationService) {
+    public WebSessionAuthorizeService(GatekeeperProperties properties,
+                                      TokenEndpointService tokenEndpointService,
+                                      TokensVerificationService tokensVerificationService,
+                                      SessionIdRepository sessionIdRepository) {
         this.clients = properties.getClients();
         this.tokenEndpointService = tokenEndpointService;
         this.tokensVerificationService = tokensVerificationService;
+        this.sessionIdRepository = sessionIdRepository;
     }
 
     public Mono<AuthorizationContext> getAuthorizedUserContextByCode(String clientId, String code, ServerWebExchange exchange) {
@@ -66,6 +71,7 @@ public class WebSessionAuthorizeService implements AuthorizeService {
                                 log.info("success verify tokens");
                                 clientAuthorization.setTokens(tokens);
                                 tokens.setAccessTokenLastCheckTime(Instant.now());
+                                sessionIdRepository.connectWebSessionWithSessionId(session.getId(), tokens.getSessionId());
                                 return Mono.just(context);
                             });
                 });
