@@ -150,7 +150,12 @@ public class AuthorizationFilterTest {
 
         checkAuthorizationRedirect();
 
-        assertEquals("http://forwarded-host:666/forwarded-path?proxy=true", getContext().getClientAuthorizations().get(CLIENT_ID)
+        /*
+            TODO: у некоторых команд в этом параметре прилетает порт 80 хотя в X-Forwarded-Proto https
+                  из-за невозможности установить причину такого поведения временно делается фикс на нашей стороне
+        */
+//        assertEquals("http://forwarded-host:666/forwarded-path?proxy=true", getContext().getClientAuthorizations().get(CLIENT_ID)
+        assertEquals("http://forwarded-host/forwarded-path?proxy=true", getContext().getClientAuthorizations().get(CLIENT_ID)
                 .getInitialRequestUri().toString());
     }
 
@@ -366,6 +371,19 @@ public class AuthorizationFilterTest {
     @Test
     public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndSuccessLogoutRequest() {
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
+
+        exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=http://customredirectpage.com");
+
+        filter.filter(exchange, null).block();
+
+        checkAuthorizationRedirect("http://customredirectpage.com");
+
+        assertNull(getContext());
+    }
+
+    @Test
+    public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndFailLogoutRequest() {
+        when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.error(new RuntimeException()));
 
         exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=http://customredirectpage.com");
 

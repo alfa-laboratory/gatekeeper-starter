@@ -82,11 +82,11 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                         if (exchange.getRequest().getPath().pathWithinApplication().value().endsWith("/logout")) {
                             String endUrl = exchange.getRequest().getQueryParams().getFirst("end_url");
                             if (endUrl != null && !endUrl.isBlank()) {
-                                return sendRedirectToAuthorizationPage(exchange, authorizeResult.client, endUrl);
+                                return sendRedirectToSpecificPageAfterLogout(exchange, authorizeResult.client, endUrl);
                             }
                         }
                     }
-                    return sendRedirectToAuthorizationPage(exchange, authorizeResult.client, authorizationPageUri);
+                    return sendRedirectToAuthenticationPage(exchange, authorizeResult.client);
                 });
     }
 
@@ -224,15 +224,13 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
         });
     }
 
-    private Mono<Void> sendRedirectToAuthorizationPage(ServerWebExchange exchange, Client client, String pageUri) {
-        String sendRedirectInfo = "send redirect to custom page after logout" + pageUri;
-        String redirectPageUriInfo = "custom page after logout redirect uri {}";
-        if (pageUri.equals(authorizationPageUri)) {
-            sendRedirectInfo = "send redirect to authorization page";
-            redirectPageUriInfo = "authorization redirect uri {}";
-        }
+    private Mono<Void> sendRedirectToAuthenticationPage(ServerWebExchange exchange, Client client) {
+        log.info("send redirect to authorization page");
+        return sendRedirectToSpecificPageAfterLogout(exchange, client, authorizationPageUri);
+    }
 
-        log.info(sendRedirectInfo);
+    private Mono<Void> sendRedirectToSpecificPageAfterLogout(ServerWebExchange exchange, Client client, String pageUri) {
+        log.info("send redirect to URI after logout {}", pageUri);
 
         Set<String> scopes = new LinkedHashSet<>();
         scopes.add("openid");
@@ -245,7 +243,7 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                 .build()
                 .toUri();
 
-        log.debug(redirectPageUriInfo, location.toString());
+        log.debug("after logout redirect uri {}", location.toString());
 
         return Mono.fromRunnable(() -> {
             ServerHttpResponse response = exchange.getResponse();
