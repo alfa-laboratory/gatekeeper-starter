@@ -82,11 +82,11 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                         if (exchange.getRequest().getPath().pathWithinApplication().value().endsWith("/logout")) {
                             String endUrl = exchange.getRequest().getQueryParams().getFirst("end_url");
                             if (endUrl != null && !endUrl.isBlank()) {
-                                return sendRedirectToSpecificPageAfterLogout(exchange, authorizeResult.client, endUrl);
+                                return sendRedirectToEndUrlPage(exchange, endUrl);
                             }
                         }
                     }
-                    return sendRedirectToAuthenticationPage(exchange, authorizeResult.client);
+                    return sendRedirectToAuthorizationPage(exchange, authorizeResult.client);
                 });
     }
 
@@ -224,26 +224,37 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
         });
     }
 
-    private Mono<Void> sendRedirectToAuthenticationPage(ServerWebExchange exchange, Client client) {
+    private Mono<Void> sendRedirectToAuthorizationPage(ServerWebExchange exchange, Client client) {
         log.info("send redirect to authorization page");
-        return sendRedirectToSpecificPageAfterLogout(exchange, client, authorizationPageUri);
-    }
-
-    private Mono<Void> sendRedirectToSpecificPageAfterLogout(ServerWebExchange exchange, Client client, String pageUri) {
-        log.info("send redirect to URI after logout {}", pageUri);
 
         Set<String> scopes = new LinkedHashSet<>();
         scopes.add("openid");
         scopes.addAll(client.getScope());
 
-        URI location = UriComponentsBuilder.fromUriString(pageUri)
+        URI location = UriComponentsBuilder.fromUriString(authorizationPageUri)
                 .queryParam("response_type", "code")
                 .queryParam("client_id", client.getId())
                 .queryParam("scope", StringUtils.collectionToDelimitedString(scopes, " "))
                 .build()
                 .toUri();
 
-        log.debug("after logout redirect uri {}", location.toString());
+        log.debug("authorization redirect uri {}", location.toString());
+
+        return Mono.fromRunnable(() -> {
+            ServerHttpResponse response = exchange.getResponse();
+            response.setStatusCode(HttpStatus.FOUND);
+            response.getHeaders().setLocation(location);
+        });
+    }
+
+    private Mono<Void> sendRedirectToEndUrlPage(ServerWebExchange exchange, String pageUri) {
+        log.info("send redirect to 'end_url'");
+
+        URI location = UriComponentsBuilder.fromUriString(pageUri)
+                .build()
+                .toUri();
+
+        log.debug("'end_url' redirect uri {}", location.toString());
 
         return Mono.fromRunnable(() -> {
             ServerHttpResponse response = exchange.getResponse();
