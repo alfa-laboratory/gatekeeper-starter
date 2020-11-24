@@ -48,6 +48,9 @@ public class AuthorizationFilterTest {
     private static final String CLIENT_ID = "test-app";
     private static final Set<String> SCOPES = Set.of("roles", "profile");
 
+    private static final String END_URL = "http://customredirectpage.com?name=me&ID=123";
+    private static final String END_URL_ENCODED = "http://customredirectpage.com%3fname%3dme%26ID%3d123&param=param";
+
     private static final String INITIAL_REQUEST_URI = "https://gateway.com/sample-app/dashboard";
     private static final String NEXT_FILTER_EXCEPTION_MESSAGE = "Next filter called!";
 
@@ -81,12 +84,12 @@ public class AuthorizationFilterTest {
         filter = new AuthorizationFilter(properties, tokenEndpointService);
     }
 
-    private void checkAuthorizationRedirect(String redirectPageUri) {
+    private void checkAuthorizationRedirect() {
         ServerHttpResponse response = exchange.getResponse();
         assertEquals(FOUND, response.getStatusCode());
 
         String redirectUri = requireNonNull(response.getHeaders().getLocation()).toString();
-        assertTrue(redirectUri.startsWith(redirectPageUri));
+        assertTrue(redirectUri.startsWith(AUTHORIZATION_PAGE_URI));
 
         MultiValueMap<String, String> queryParams = UriComponentsBuilder.fromUriString(redirectUri)
                 .build()
@@ -99,10 +102,6 @@ public class AuthorizationFilterTest {
         expectedScopes.add("openid");
         expectedScopes.addAll(SCOPES);
         assertEquals(expectedScopes, scopes);
-    }
-
-    private void checkAuthorizationRedirect() {
-        checkAuthorizationRedirect(AUTHORIZATION_PAGE_URI);
     }
 
     @Test
@@ -372,11 +371,11 @@ public class AuthorizationFilterTest {
     public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndSuccessLogoutRequest() {
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
 
-        exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=http://customredirectpage.com");
+        exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);
 
         filter.filter(exchange, null).block();
 
-        checkAuthorizationRedirect("http://customredirectpage.com");
+        checkAfterLogoutRedirect();
 
         assertNull(getContext());
     }
@@ -385,12 +384,25 @@ public class AuthorizationFilterTest {
     public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndFailLogoutRequest() {
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.error(new RuntimeException()));
 
-        exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=http://customredirectpage.com");
+        exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);
 
         filter.filter(exchange, null).block();
 
-        checkAuthorizationRedirect("http://customredirectpage.com");
+        checkAfterLogoutRedirect();
 
         assertNull(getContext());
+    }
+
+    private void checkAfterLogoutRedirect() {
+        ServerHttpResponse response = exchange.getResponse();
+        assertEquals(FOUND, response.getStatusCode());
+
+        String redirectUri = requireNonNull(response.getHeaders().getLocation()).toString();
+        assertTrue(redirectUri.startsWith(END_URL));
+
+        MultiValueMap<String, String> queryParams = UriComponentsBuilder.fromUriString(redirectUri)
+                .build()
+                .getQueryParams();
+        assertEquals(2, queryParams.size());
     }
 }

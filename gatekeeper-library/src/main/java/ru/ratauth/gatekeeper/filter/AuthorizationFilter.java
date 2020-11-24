@@ -23,7 +23,10 @@ import ru.ratauth.gatekeeper.security.ClientAuthorization;
 import ru.ratauth.gatekeeper.security.Tokens;
 import ru.ratauth.gatekeeper.service.TokenEndpointService;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -250,7 +253,14 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
     private Mono<Void> sendRedirectToEndUrlPage(ServerWebExchange exchange, String pageUri) {
         log.info("send redirect to 'end_url'");
 
-        URI location = UriComponentsBuilder.fromUriString(pageUri)
+        String decodedURL = pageUri;
+        try {
+            decodedURL = URLDecoder.decode(pageUri, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            log.error("Cannot decode URL {}", pageUri);
+        }
+
+        URI location = UriComponentsBuilder.fromUriString(decodedURL)
                 .build()
                 .toUri();
 
