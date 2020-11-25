@@ -81,15 +81,8 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                     if (authorizeResult.success) {
                         log.debug("continue filter chain");
                         return chain.filter(exchange);
-                    } else {
-                        if (exchange.getRequest().getPath().pathWithinApplication().value().endsWith("/logout")) {
-                            String endUrl = exchange.getRequest().getQueryParams().getFirst("end_url");
-                            if (endUrl != null && !endUrl.isBlank()) {
-                                return sendRedirectToEndUrlPage(exchange, endUrl);
-                            }
-                        }
                     }
-                    return sendRedirectToAuthorizationPage(exchange, authorizeResult.client);
+                    return sendRedirect(exchange, authorizeResult.client);
                 });
     }
 
@@ -225,6 +218,16 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
             clientAuthorization.setInitialRequestUri(uriBuilder.build().toUri());
             log.debug("save initial request {}", clientAuthorization.getInitialRequestUri());
         });
+    }
+
+    private Mono<Void> sendRedirect(ServerWebExchange exchange, Client client) {
+        if (exchange.getRequest().getPath().pathWithinApplication().value().endsWith("/logout")) {
+            String endUrl = exchange.getRequest().getQueryParams().getFirst("end_url");
+            if (endUrl != null && !endUrl.isBlank()) {
+                return sendRedirectToEndUrlPage(exchange, endUrl);
+            }
+        }
+        return sendRedirectToAuthorizationPage(exchange, client);
     }
 
     private Mono<Void> sendRedirectToAuthorizationPage(ServerWebExchange exchange, Client client) {
