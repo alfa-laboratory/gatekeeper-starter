@@ -23,7 +23,10 @@ import ru.ratauth.gatekeeper.security.ClientAuthorization;
 import ru.ratauth.gatekeeper.security.Tokens;
 import ru.ratauth.gatekeeper.service.TokenEndpointService;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -79,7 +82,7 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                         log.debug("continue filter chain");
                         return chain.filter(exchange);
                     }
-                    return sendRedirectToAuthorizationPage(exchange, authorizeResult.client);
+                    return sendRedirect(exchange, authorizeResult.client);
                 });
     }
 
@@ -217,6 +220,16 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
         });
     }
 
+    private Mono<Void> sendRedirect(ServerWebExchange exchange, Client client) {
+        if (exchange.getRequest().getPath().pathWithinApplication().value().endsWith("/logout")) {
+            String endUrl = exchange.getRequest().getQueryParams().getFirst("end_url");
+            if (endUrl != null && !endUrl.isBlank()) {
+                return sendRedirectToEndUrlPage(exchange, endUrl);
+            }
+        }
+        return sendRedirectToAuthorizationPage(exchange, client);
+    }
+
     private Mono<Void> sendRedirectToAuthorizationPage(ServerWebExchange exchange, Client client) {
         log.info("send redirect to authorization page");
 
@@ -239,4 +252,28 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
             response.getHeaders().setLocation(location);
         });
     }
+
+    private Mono<Void> sendRedirectToEndUrlPage(ServerWebExchange exchange, String pageUri) {
+        log.info("send redirect to 'end_url'");
+
+        String decodedURL = pageUri;
+        try {
+            decodedURL = URLDecoder.decode(pageUri, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            log.error("Cannot decode URL {}", pageUri);
+        }
+
+        URI location = UriComponentsBuilder.fromUriString(decodedURL)
+                .build()
+                .toUri();
+
+        log.debug("'end_url' redirect uri {}", location.toString());
+
+        return Mono.fromRunnable(() -> {
+            ServerHttpResponse response = exchange.getResponse();
+            response.setStatusCode(HttpStatus.FOUND);
+            response.getHeaders().setLocation(location);
+        });
+    }
+
 }

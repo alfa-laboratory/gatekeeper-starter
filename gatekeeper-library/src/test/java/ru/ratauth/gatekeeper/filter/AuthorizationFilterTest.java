@@ -48,6 +48,9 @@ public class AuthorizationFilterTest {
     private static final String CLIENT_ID = "test-app";
     private static final Set<String> SCOPES = Set.of("roles", "profile");
 
+    private static final String END_URL = "http://customredirectpage.com?name=me&ID=123";
+    private static final String END_URL_ENCODED = "http://customredirectpage.com%3fname%3dme%26ID%3d123&param=param";
+
     private static final String INITIAL_REQUEST_URI = "https://gateway.com/sample-app/dashboard";
     private static final String NEXT_FILTER_EXCEPTION_MESSAGE = "Next filter called!";
 
@@ -146,7 +149,12 @@ public class AuthorizationFilterTest {
 
         checkAuthorizationRedirect();
 
-        assertEquals("http://forwarded-host:666/forwarded-path?proxy=true", getContext().getClientAuthorizations().get(CLIENT_ID)
+        /*
+            TODO: у некоторых команд в этом параметре прилетает порт 80 хотя в X-Forwarded-Proto https
+                  из-за невозможности установить причину такого поведения временно делается фикс на нашей стороне
+        */
+//        assertEquals("http://forwarded-host:666/forwarded-path?proxy=true", getContext().getClientAuthorizations().get(CLIENT_ID)
+        assertEquals("http://forwarded-host/forwarded-path?proxy=true", getContext().getClientAuthorizations().get(CLIENT_ID)
                 .getInitialRequestUri().toString());
     }
 
@@ -313,8 +321,8 @@ public class AuthorizationFilterTest {
         assertNull(getContext());
     }
 
-    private MockServerWebExchange getLogoutExchangeWithTokens() {
-        MockServerWebExchange e = MockServerWebExchange.from(MockServerHttpRequest.get("https://gateway.com/logout"));
+    private MockServerWebExchange getLogoutExchangeWithTokens(String uriTemplate) {
+        MockServerWebExchange e = MockServerWebExchange.from(MockServerHttpRequest.get(uriTemplate));
         e.getAttributes().put(GATEWAY_ROUTE_ATTR, route);
         e.getSession()
                 .doOnNext(session -> {
@@ -327,6 +335,10 @@ public class AuthorizationFilterTest {
                 })
                 .block();
         return e;
+    }
+
+    private MockServerWebExchange getLogoutExchangeWithTokens() {
+        return getLogoutExchangeWithTokens("https://gateway.com/logout");
     }
 
     @Test
@@ -353,5 +365,44 @@ public class AuthorizationFilterTest {
         checkAuthorizationRedirect();
 
         assertNull(getContext());
+    }
+
+    @Test
+    public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndSuccessLogoutRequest() {
+        when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
+
+        exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);
+
+        filter.filter(exchange, null).block();
+
+        checkAfterLogoutRedirect();
+
+        assertNull(getContext());
+    }
+
+    @Test
+    public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndFailLogoutRequest() {
+        when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.error(new RuntimeException()));
+
+        exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);
+
+        filter.filter(exchange, null).block();
+
+        checkAfterLogoutRedirect();
+
+        assertNull(getContext());
+    }
+
+    private void checkAfterLogoutRedirect() {
+        ServerHttpResponse response = exchange.getResponse();
+        assertEquals(FOUND, response.getStatusCode());
+
+        String redirectUri = requireNonNull(response.getHeaders().getLocation()).toString();
+        assertTrue(redirectUri.startsWith(END_URL));
+
+        MultiValueMap<String, String> queryParams = UriComponentsBuilder.fromUriString(redirectUri)
+                .build()
+                .getQueryParams();
+        assertEquals(2, queryParams.size());
     }
 }
