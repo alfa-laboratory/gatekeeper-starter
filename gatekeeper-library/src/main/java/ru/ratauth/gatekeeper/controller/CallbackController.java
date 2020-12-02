@@ -4,10 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.Client;
@@ -35,6 +32,7 @@ public class CallbackController {
         this.clients = properties.getClients();
     }
 
+    @CrossOrigin
     @GetMapping("/openid/authorize/{client_id}")
     public Mono<ResponseEntity<String>> callback(@PathVariable("client_id") String clientId, @RequestParam String code, ServerWebExchange exchange) {
         log.info("handle openid connect authentication code callback");
