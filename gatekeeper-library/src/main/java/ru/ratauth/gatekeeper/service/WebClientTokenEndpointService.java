@@ -17,6 +17,7 @@ import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.Tokens;
 
+import java.net.URI;
 import java.util.Map;
 
 @Slf4j
@@ -131,4 +132,16 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
                 .body(BodyInserters.fromFormData("refresh_token", refreshToken.getValue()))
                 .exchange();
     }
+
+    @Override
+    public Mono<ClientResponse> invalidateRemoteSession(Client client, URI uri, RefreshToken refreshToken) {
+        return webClient.post()
+                .uri(uri)
+                .accept(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .headers(headers -> headers.setBasicAuth(client.getId(), client.getPassword()))
+                .body(BodyInserters.fromFormData("refresh_token", refreshToken.getValue()))
+                .exchange();
+    }
+
 }

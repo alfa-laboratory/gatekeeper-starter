@@ -103,19 +103,24 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                         Tokens clientTokens = clientAuthorization.getTokens();
 
                         ServerHttpRequest request = exchange.getRequest();
-                        String path = request.getPath().pathWithinApplication().value();
+                        URI uri = request.getURI();
                         log.debug("request uri {}", request.getURI());
-                        if (path.endsWith("/logout")) {
+                        if (uri.getPath().endsWith("/logout")) {
                             log.debug("request path ends with /logout");
                             log.info("perform logout");
                             if (clientTokens != null) {
                                 log.debug("clientTokens present");
                                 log.debug("send logout request to revocation endpoint and invalidate session");
-                                return tokenEndpointService.logout(client, clientTokens.getRefreshToken())
+                                return tokenEndpointService.invalidateRemoteSession(client, uri, clientTokens.getRefreshToken())
+                                        .onErrorResume(t -> {
+                                            log.warn("cannot revocate tokens by URI " + uri, t);
+                                            return Mono.empty();
+                                        })
+                                        .then(tokenEndpointService.logout(client, clientTokens.getRefreshToken())
                                         .onErrorResume(t -> {
                                             log.warn("clientTokens revocation failed", t);
                                             return Mono.empty();
-                                        })
+                                        }))
                                         .then(session.invalidate())
                                         .thenReturn(new AuthorizeResult(false, client));
                             }

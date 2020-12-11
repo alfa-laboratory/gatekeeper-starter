@@ -343,6 +343,7 @@ public class AuthorizationFilterTest {
 
     @Test
     public void shouldRedirectToAuthorizationPageIfPathMatchLogoutTokensPresentAndSuccessLogoutRequest() {
+        when(tokenEndpointService.invalidateRemoteSession(any(), any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
 
         exchange = getLogoutExchangeWithTokens();
@@ -356,6 +357,7 @@ public class AuthorizationFilterTest {
 
     @Test
     public void shouldRedirectToAuthorizationPageIfPathMatchLogoutTokensPresentAndFailLogoutRequest() {
+        when(tokenEndpointService.invalidateRemoteSession(any(), any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.error(new RuntimeException()));
 
         exchange = getLogoutExchangeWithTokens();
@@ -369,6 +371,7 @@ public class AuthorizationFilterTest {
 
     @Test
     public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndSuccessLogoutRequest() {
+        when(tokenEndpointService.invalidateRemoteSession(any(), any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
 
         exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);
@@ -382,6 +385,7 @@ public class AuthorizationFilterTest {
 
     @Test
     public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndFailLogoutRequest() {
+        when(tokenEndpointService.invalidateRemoteSession(any(), any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.error(new RuntimeException()));
 
         exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);

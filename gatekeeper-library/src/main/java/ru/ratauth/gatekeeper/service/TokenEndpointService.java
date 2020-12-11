@@ -8,6 +8,8 @@ import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.security.Tokens;
 
+import java.net.URI;
+
 public interface TokenEndpointService {
     Mono<Tokens> exchangeCodeForTokens(Client client, String code);
 
@@ -16,4 +18,6 @@ public interface TokenEndpointService {
     Mono<SignedJWT> checkAccessToken(Client client, BearerAccessToken accessToken);
 
     Mono<ClientResponse> logout(Client client, RefreshToken refreshToken);
+
+    Mono<ClientResponse> invalidateRemoteSession(Client client, URI uri, RefreshToken refreshToken);
 }
