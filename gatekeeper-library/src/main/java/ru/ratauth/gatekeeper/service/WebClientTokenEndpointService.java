@@ -124,6 +124,7 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
 
     @Override
     public Mono<ClientResponse> logout(Client client, RefreshToken refreshToken) {
+        log.debug("performing logout");
         return webClient.post()
                 .uri(revocationEndpointUri)
                 .accept(MediaType.APPLICATION_JSON)
@@ -135,6 +136,7 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
 
     @Override
     public Mono<ClientResponse> invalidateRemoteSession(Client client, URI uri, RefreshToken refreshToken) {
+        log.debug("trying to invalidate remote session");
         return webClient.post()
                 .uri(uri)
                 .accept(MediaType.APPLICATION_JSON)
