@@ -111,16 +111,16 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                             if (clientTokens != null) {
                                 log.debug("clientTokens present");
                                 log.debug("send logout request to revocation endpoint and invalidate session");
-                                return tokenEndpointService.invalidateRemoteSession(client, uri, clientTokens.getRefreshToken())
-                                        .onErrorResume(t -> {
-                                            log.warn("cannot revocate tokens by URI " + uri, t);
-                                            return Mono.empty();
-                                        })
-                                        .then(tokenEndpointService.logout(client, clientTokens.getRefreshToken())
+                                return tokenEndpointService.logout(client, clientTokens.getRefreshToken())
                                         .onErrorResume(t -> {
                                             log.warn("clientTokens revocation failed", t);
                                             return Mono.empty();
-                                        }))
+                                        })
+                                        .then(tokenEndpointService.invalidateRemoteSession(client, uri, clientTokens.getRefreshToken())
+                                                .onErrorResume(t -> {
+                                                    log.warn("cannot revocate tokens by URI " + uri, t);
+                                                    return Mono.empty();
+                                                }))
                                         .then(session.invalidate())
                                         .thenReturn(new AuthorizeResult(false, client));
                             }

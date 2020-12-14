@@ -4,8 +4,9 @@ import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
 import com.nimbusds.oauth2.sdk.token.RefreshToken;
-import lombok.extern.slf4j.Slf4j;
 import net.minidev.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -20,9 +21,10 @@ import ru.ratauth.gatekeeper.security.Tokens;
 import java.net.URI;
 import java.util.Map;
 
-@Slf4j
+//@Slf4j
 @Service
 public class WebClientTokenEndpointService implements TokenEndpointService {
+    private final Logger log = LoggerFactory.getLogger(WebClientTokenEndpointService.class);
 
     private final static String SESSION_ID = "sid";
 
