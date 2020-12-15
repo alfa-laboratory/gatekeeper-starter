@@ -4,9 +4,8 @@ import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
 import com.nimbusds.oauth2.sdk.token.RefreshToken;
+import lombok.extern.slf4j.Slf4j;
 import net.minidev.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -18,13 +17,11 @@ import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.Tokens;
 
-import java.net.URI;
 import java.util.Map;
 
-//@Slf4j
+@Slf4j
 @Service
 public class WebClientTokenEndpointService implements TokenEndpointService {
-    private final Logger log = LoggerFactory.getLogger(WebClientTokenEndpointService.class);
 
     private final static String SESSION_ID = "sid";
 
@@ -129,18 +126,6 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
         log.debug("performing logout");
         return webClient.post()
                 .uri(revocationEndpointUri)
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .headers(headers -> headers.setBasicAuth(client.getId(), client.getPassword()))
-                .body(BodyInserters.fromFormData("refresh_token", refreshToken.getValue()))
-                .exchange();
-    }
-
-    @Override
-    public Mono<ClientResponse> invalidateRemoteSession(Client client, URI uri, RefreshToken refreshToken) {
-        log.debug("trying to invalidate remote session");
-        return webClient.post()
-                .uri(uri)
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .headers(headers -> headers.setBasicAuth(client.getId(), client.getPassword()))
