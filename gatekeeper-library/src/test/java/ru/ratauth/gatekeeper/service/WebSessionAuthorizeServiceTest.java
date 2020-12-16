@@ -32,6 +32,7 @@ public class WebSessionAuthorizeServiceTest {
     private static final String CODE = UUID.randomUUID().toString();
 
     private AuthorizeService authorizeService;
+    private SessionIdRepository sessionIdRepository;
 
     @Before
     public void init() {
@@ -46,7 +47,7 @@ public class WebSessionAuthorizeServiceTest {
         Tokens tokens = new Tokens();
         tokens.setAccessToken(ACCESS_TOKEN);
         when(tokenEndpointService.exchangeCodeForTokens(any(), any())).thenReturn(Mono.just(tokens));
-        authorizeService = new WebSessionAuthorizeService(properties, tokenEndpointService, tokensVerificationService);
+        authorizeService = new WebSessionAuthorizeService(properties, tokenEndpointService, tokensVerificationService, sessionIdRepository);
     }
 
     @Test

@@ -25,6 +25,7 @@ import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
 import ru.ratauth.gatekeeper.security.ClientAuthorization;
 import ru.ratauth.gatekeeper.security.Tokens;
+import ru.ratauth.gatekeeper.service.RedirectService;
 import ru.ratauth.gatekeeper.service.TokenEndpointService;
 
 import java.time.Duration;
@@ -63,6 +64,7 @@ public class AuthorizationFilterTest {
     private Route route;
     private GatewayFilterChain chain;
     private TokenEndpointService tokenEndpointService;
+    private RedirectService redirectService;
     private AuthorizationFilter filter;
 
     @Before
@@ -81,7 +83,7 @@ public class AuthorizationFilterTest {
             throw new RuntimeException(NEXT_FILTER_EXCEPTION_MESSAGE);
         };
         tokenEndpointService = mock(TokenEndpointService.class);
-        filter = new AuthorizationFilter(properties, tokenEndpointService);
+        filter = new AuthorizationFilter(properties, tokenEndpointService, redirectService);
     }
 
     private void checkAuthorizationRedirect() {
@@ -343,7 +345,6 @@ public class AuthorizationFilterTest {
 
     @Test
     public void shouldRedirectToAuthorizationPageIfPathMatchLogoutTokensPresentAndSuccessLogoutRequest() {
-        when(tokenEndpointService.invalidateRemoteSession(any(), any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
 
         exchange = getLogoutExchangeWithTokens();
@@ -357,7 +358,6 @@ public class AuthorizationFilterTest {
 
     @Test
     public void shouldRedirectToAuthorizationPageIfPathMatchLogoutTokensPresentAndFailLogoutRequest() {
-        when(tokenEndpointService.invalidateRemoteSession(any(), any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.error(new RuntimeException()));
 
         exchange = getLogoutExchangeWithTokens();
@@ -371,7 +371,6 @@ public class AuthorizationFilterTest {
 
     @Test
     public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndSuccessLogoutRequest() {
-        when(tokenEndpointService.invalidateRemoteSession(any(), any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
 
         exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);
@@ -385,12 +384,11 @@ public class AuthorizationFilterTest {
 
     @Test
     public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndFailLogoutRequest() {
-        when(tokenEndpointService.invalidateRemoteSession(any(), any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
         when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.error(new RuntimeException()));
 
         exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);
 
-        filter.filter(exchange, null).block();
+        filter.filter(exchange, chain).block();
 
         checkAfterLogoutRedirect();
 
