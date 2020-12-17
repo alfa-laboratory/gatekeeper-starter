@@ -4,7 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebSession;
 import reactor.core.publisher.Mono;
+import ru.ratauth.gatekeeper.filter.AuthorizationFilter;
 import ru.ratauth.gatekeeper.properties.Client;
 import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
@@ -34,11 +36,8 @@ public class OpenIdLogoutService implements LogoutService {
 
 
     @Override
-    public Mono<Void> performLogout(Client client, ServerWebExchange exchange) {
+    public Mono<AuthorizationFilter.AuthorizeResult> performLogout(Client client, WebSession session) {
         log.info("perform logout");
-        return exchange.getSession()
-                .flatMap(session -> {
-
                     if (client != null) {
                         AuthorizationContext context = (AuthorizationContext) session.getAttributes()
                                 .computeIfAbsent(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, key -> new AuthorizationContext());
@@ -53,15 +52,16 @@ public class OpenIdLogoutService implements LogoutService {
                                         log.warn("clientTokens revocation failed", t);
                                         return Mono.empty();
                                     })
-                                    .then(session.invalidate());
+                                    .then(session.invalidate())
+                                    .thenReturn(new AuthorizationFilter.AuthorizeResult(false, client));
                         }
 
                         log.debug("clientTokens is empty");
                         log.debug("invalidate session");
-                        return session.invalidate();
+                        return session.invalidate()
+                                .thenReturn(new AuthorizationFilter.AuthorizeResult(false, client));
                     }
                     return Mono.empty();
-                });
     }
 
     @Override
@@ -69,7 +69,7 @@ public class OpenIdLogoutService implements LogoutService {
         Client client = clients.stream()
                 .filter(c -> Objects.equals(clientId, c.getId()))
                 .findFirst().orElseThrow();
-        performLogout(client, exchange);
+        exchange.getSession().flatMap(session -> performLogout(client, session));
         return redirectService.sendRedirect(exchange, client);
     }
 }

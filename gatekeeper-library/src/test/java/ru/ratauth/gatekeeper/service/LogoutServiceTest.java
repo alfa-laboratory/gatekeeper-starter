@@ -10,6 +10,7 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.server.WebSession;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 import ru.ratauth.gatekeeper.properties.Client;
@@ -22,8 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -83,6 +83,8 @@ public class LogoutServiceTest {
         logoutService.performLogoutAndRedirect(CLIENT_ID, exchange).block();
 
         checkAuthorizationRedirect();
+
+        assertNull(getContext());
     }
 
     private MockServerWebExchange getLogoutExchangeWithTokens(String uriTemplate) {
@@ -123,6 +125,8 @@ public class LogoutServiceTest {
         logoutService.performLogoutAndRedirect(CLIENT_ID, exchange).block();
 
         checkAuthorizationRedirect();
+
+        assertNull(getContext());
     }
 
     @Test
@@ -144,6 +148,8 @@ public class LogoutServiceTest {
         logoutService.performLogoutAndRedirect(CLIENT_ID, exchange).block();
 
         checkAuthorizationRedirect();
+
+        assertNull(getContext());
     }
 
     @Test
@@ -161,6 +167,8 @@ public class LogoutServiceTest {
         logoutService.performLogoutAndRedirect(CLIENT_ID, exchange).block();
 
         checkAfterLogoutRedirect();
+
+        assertNull(getContext());
     }
 
     @Test
@@ -178,6 +186,8 @@ public class LogoutServiceTest {
         logoutService.performLogoutAndRedirect(CLIENT_ID, exchange).block();
 
         checkAfterLogoutRedirect();
+
+        assertNull(getContext());
     }
 
     private void checkAfterLogoutRedirect() {
@@ -206,6 +216,13 @@ public class LogoutServiceTest {
         assertEquals(3, queryParams.size());
         assertEquals("code", queryParams.getFirst("response_type"));
         assertEquals(CLIENT_ID, queryParams.getFirst("client_id"));
+    }
+
+
+    private AuthorizationContext getContext() {
+        WebSession session = exchange.getSession().block();
+        assert session != null;
+        return session.getAttribute(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR);
     }
 
 }
