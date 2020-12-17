@@ -8,4 +8,6 @@ public interface RedirectService {
     Mono<Void> sendRedirect(ServerWebExchange exchange, Client client);
 
     Mono<Void> sendRedirectToAuthorizationPage(ServerWebExchange exchange, Client client);
+
+    Mono<Void> sendRedirectToEndUrlPage(ServerWebExchange exchange, String pageUri);
 }

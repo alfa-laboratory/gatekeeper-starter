@@ -64,7 +64,8 @@ public class ConfigurableRedirectService implements RedirectService {
         });
     }
 
-    private Mono<Void> sendRedirectToEndUrlPage(ServerWebExchange exchange, String pageUri) {
+    @Override
+    public Mono<Void> sendRedirectToEndUrlPage(ServerWebExchange exchange, String pageUri) {
         log.info("send redirect to 'end_url'");
 
         String decodedURL = pageUri;
