@@ -58,7 +58,6 @@ public class LogoutServiceTest {
         exchange = MockServerWebExchange.from(MockServerHttpRequest.get(INITIAL_REQUEST_URI));
         route = mock(Route.class);
         when(route.getId()).thenReturn(CLIENT_ID);
-        exchange.getAttributes().put(GATEWAY_ROUTE_ATTR, route);
         tokenEndpointService = mock(TokenEndpointService.class);
         redirectService = mock(RedirectService.class);
         logoutService = new OpenIdLogoutService(properties, tokenEndpointService, redirectService);
@@ -85,26 +84,6 @@ public class LogoutServiceTest {
         checkAuthorizationRedirect();
 
         assertNull(getContext());
-    }
-
-    private MockServerWebExchange getLogoutExchangeWithTokens(String uriTemplate) {
-        MockServerWebExchange e = MockServerWebExchange.from(MockServerHttpRequest.get(uriTemplate));
-        e.getAttributes().put(GATEWAY_ROUTE_ATTR, route);
-        e.getSession()
-                .doOnNext(session -> {
-                    Tokens tokens = new Tokens();
-                    AuthorizationContext context = new AuthorizationContext();
-                    ClientAuthorization clientAuthorization = new ClientAuthorization();
-                    clientAuthorization.setTokens(tokens);
-                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
-                    session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
-                })
-                .block();
-        return e;
-    }
-
-    private MockServerWebExchange getLogoutExchangeWithTokens() {
-        return getLogoutExchangeWithTokens("https://gateway.com/logout");
     }
 
     @Test
@@ -188,6 +167,26 @@ public class LogoutServiceTest {
         checkAfterLogoutRedirect();
 
         assertNull(getContext());
+    }
+
+    private MockServerWebExchange getLogoutExchangeWithTokens(String uriTemplate) {
+        MockServerWebExchange e = MockServerWebExchange.from(MockServerHttpRequest.get(uriTemplate));
+        e.getAttributes().put(GATEWAY_ROUTE_ATTR, route);
+        e.getSession()
+                .doOnNext(session -> {
+                    Tokens tokens = new Tokens();
+                    AuthorizationContext context = new AuthorizationContext();
+                    ClientAuthorization clientAuthorization = new ClientAuthorization();
+                    clientAuthorization.setTokens(tokens);
+                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
+                    session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
+                })
+                .block();
+        return e;
+    }
+
+    private MockServerWebExchange getLogoutExchangeWithTokens() {
+        return getLogoutExchangeWithTokens("https://gateway.com/logout");
     }
 
     private void checkAfterLogoutRedirect() {
