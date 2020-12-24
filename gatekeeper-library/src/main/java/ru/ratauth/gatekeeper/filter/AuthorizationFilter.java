@@ -54,11 +54,11 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
         this.redirectService = redirectService;
     }
 
-    public static class AuthorizeResult {
+    private static class AuthorizeResult {
         private final Client client;
         private final boolean success;
 
-        public AuthorizeResult(boolean success, Client client) {
+        AuthorizeResult(boolean success, Client client) {
             this.success = success;
             this.client = client;
         }
