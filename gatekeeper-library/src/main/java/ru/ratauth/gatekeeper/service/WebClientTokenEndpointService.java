@@ -123,6 +123,7 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
 
     @Override
     public Mono<ClientResponse> logout(Client client, RefreshToken refreshToken) {
+        log.debug("performing logout");
         return webClient.post()
                 .uri(revocationEndpointUri)
                 .accept(MediaType.APPLICATION_JSON)
@@ -131,4 +132,5 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
                 .body(BodyInserters.fromFormData("refresh_token", refreshToken.getValue()))
                 .exchange();
     }
+
 }

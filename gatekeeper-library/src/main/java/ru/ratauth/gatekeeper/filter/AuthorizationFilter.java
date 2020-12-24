@@ -7,11 +7,8 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
-import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -21,17 +18,12 @@ import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
 import ru.ratauth.gatekeeper.security.ClientAuthorization;
 import ru.ratauth.gatekeeper.security.Tokens;
+import ru.ratauth.gatekeeper.service.RedirectService;
 import ru.ratauth.gatekeeper.service.TokenEndpointService;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URI;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.*;
@@ -40,26 +32,26 @@ import static ru.ratauth.gatekeeper.security.AuthorizationContext.GATEKEEPER_AUT
 
 @Component
 public class AuthorizationFilter implements GlobalFilter, Ordered {
-    private Logger log = LoggerFactory.getLogger(AuthorizationFilter.class);
+    private final Logger log = LoggerFactory.getLogger(AuthorizationFilter.class);
 
     @Override
     public int getOrder() {
         return -1;
     }
 
-    private final String authorizationPageUri;
     private final long checkTokenInterval;
-
     private final Map<String, Client> clients;
-
     private final TokenEndpointService tokenEndpointService;
+    private final RedirectService redirectService;
 
-    public AuthorizationFilter(GatekeeperProperties properties, TokenEndpointService tokenEndpointService) {
-        this.authorizationPageUri = properties.getAuthorizationPageUri();
+    public AuthorizationFilter(GatekeeperProperties properties,
+                               TokenEndpointService tokenEndpointService,
+                               RedirectService redirectService) {
         this.checkTokenInterval = properties.getCheckTokenInterval();
         this.clients = properties.getClients().stream()
                 .collect(Collectors.toMap(Client::getId, c -> c));
         this.tokenEndpointService = tokenEndpointService;
+        this.redirectService = redirectService;
     }
 
     private static class AuthorizeResult {
@@ -74,6 +66,10 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        if (exchange.getRequest().getURI().getPath().contains("logout")) {
+            log.info("Ignore 'authorize' filter for 'logout' requests");
+            return chain.filter(exchange);
+        }
         log.debug("apply gatekeeper authorization filter");
         return authorize(exchange)
                 .flatMap(authorizeResult -> {
@@ -82,7 +78,7 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                         log.debug("continue filter chain");
                         return chain.filter(exchange);
                     }
-                    return sendRedirect(exchange, authorizeResult.client);
+                    return redirectService.sendRedirectToAuthorizationPage(exchange, authorizeResult.client);
                 });
     }
 
@@ -103,28 +99,6 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                         Tokens clientTokens = clientAuthorization.getTokens();
 
                         ServerHttpRequest request = exchange.getRequest();
-                        String path = request.getPath().pathWithinApplication().value();
-                        log.debug("request uri {}", request.getURI());
-                        if (path.endsWith("/logout")) {
-                            log.debug("request path ends with /logout");
-                            log.info("perform logout");
-                            if (clientTokens != null) {
-                                log.debug("clientTokens present");
-                                log.debug("send logout request to revocation endpoint and invalidate session");
-                                return tokenEndpointService.logout(client, clientTokens.getRefreshToken())
-                                        .onErrorResume(t -> {
-                                            log.warn("clientTokens revocation failed", t);
-                                            return Mono.empty();
-                                        })
-                                        .then(session.invalidate())
-                                        .thenReturn(new AuthorizeResult(false, client));
-                            }
-                            log.debug("clientTokens is empty");
-                            log.debug("invalidate session");
-                            return session.invalidate()
-                                    .thenReturn(new AuthorizeResult(false, client));
-                        }
-
                         if (clientTokens == null) {
                             log.debug("clientTokens is empty");
                             return saveInitialRequestUri(request, clientAuthorization)
@@ -220,60 +194,6 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
         });
     }
 
-    private Mono<Void> sendRedirect(ServerWebExchange exchange, Client client) {
-        if (exchange.getRequest().getPath().pathWithinApplication().value().endsWith("/logout")) {
-            String endUrl = exchange.getRequest().getQueryParams().getFirst("end_url");
-            if (endUrl != null && !endUrl.isBlank()) {
-                return sendRedirectToEndUrlPage(exchange, endUrl);
-            }
-        }
-        return sendRedirectToAuthorizationPage(exchange, client);
-    }
 
-    private Mono<Void> sendRedirectToAuthorizationPage(ServerWebExchange exchange, Client client) {
-        log.info("send redirect to authorization page");
-
-        Set<String> scopes = new LinkedHashSet<>();
-        scopes.add("openid");
-        scopes.addAll(client.getScope());
-
-        URI location = UriComponentsBuilder.fromUriString(authorizationPageUri)
-                .queryParam("response_type", "code")
-                .queryParam("client_id", client.getId())
-                .queryParam("scope", StringUtils.collectionToDelimitedString(scopes, " "))
-                .build()
-                .toUri();
-
-        log.debug("authorization redirect uri {}", location.toString());
-
-        return Mono.fromRunnable(() -> {
-            ServerHttpResponse response = exchange.getResponse();
-            response.setStatusCode(HttpStatus.FOUND);
-            response.getHeaders().setLocation(location);
-        });
-    }
-
-    private Mono<Void> sendRedirectToEndUrlPage(ServerWebExchange exchange, String pageUri) {
-        log.info("send redirect to 'end_url'");
-
-        String decodedURL = pageUri;
-        try {
-            decodedURL = URLDecoder.decode(pageUri, StandardCharsets.UTF_8.name());
-        } catch (UnsupportedEncodingException e) {
-            log.error("Cannot decode URL {}", pageUri);
-        }
-
-        URI location = UriComponentsBuilder.fromUriString(decodedURL)
-                .build()
-                .toUri();
-
-        log.debug("'end_url' redirect uri {}", location.toString());
-
-        return Mono.fromRunnable(() -> {
-            ServerHttpResponse response = exchange.getResponse();
-            response.setStatusCode(HttpStatus.FOUND);
-            response.getHeaders().setLocation(location);
-        });
-    }
 
 }

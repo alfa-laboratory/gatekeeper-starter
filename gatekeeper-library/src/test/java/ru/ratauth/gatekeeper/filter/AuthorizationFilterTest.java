@@ -15,7 +15,7 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.WebSession;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
@@ -25,6 +25,7 @@ import ru.ratauth.gatekeeper.properties.GatekeeperProperties;
 import ru.ratauth.gatekeeper.security.AuthorizationContext;
 import ru.ratauth.gatekeeper.security.ClientAuthorization;
 import ru.ratauth.gatekeeper.security.Tokens;
+import ru.ratauth.gatekeeper.service.RedirectService;
 import ru.ratauth.gatekeeper.service.TokenEndpointService;
 
 import java.time.Duration;
@@ -48,9 +49,6 @@ public class AuthorizationFilterTest {
     private static final String CLIENT_ID = "test-app";
     private static final Set<String> SCOPES = Set.of("roles", "profile");
 
-    private static final String END_URL = "http://customredirectpage.com?name=me&ID=123";
-    private static final String END_URL_ENCODED = "http://customredirectpage.com%3fname%3dme%26ID%3d123&param=param";
-
     private static final String INITIAL_REQUEST_URI = "https://gateway.com/sample-app/dashboard";
     private static final String NEXT_FILTER_EXCEPTION_MESSAGE = "Next filter called!";
 
@@ -63,6 +61,7 @@ public class AuthorizationFilterTest {
     private Route route;
     private GatewayFilterChain chain;
     private TokenEndpointService tokenEndpointService;
+    private RedirectService redirectService;
     private AuthorizationFilter filter;
 
     @Before
@@ -81,7 +80,18 @@ public class AuthorizationFilterTest {
             throw new RuntimeException(NEXT_FILTER_EXCEPTION_MESSAGE);
         };
         tokenEndpointService = mock(TokenEndpointService.class);
-        filter = new AuthorizationFilter(properties, tokenEndpointService);
+        redirectService = mock(RedirectService.class);
+        filter = new AuthorizationFilter(properties, tokenEndpointService, redirectService);
+        when(redirectService.sendRedirectToAuthorizationPage(any(), any())).thenReturn(Mono.fromRunnable(() -> {
+            ServerHttpResponse response = exchange.getResponse();
+            response.setStatusCode(HttpStatus.FOUND);
+            response.getHeaders().setLocation(UriComponentsBuilder.fromUriString(AUTHORIZATION_PAGE_URI)
+                    .queryParam("response_type", "code")
+                    .queryParam("client_id", CLIENT_ID)
+                    .queryParam("scope", StringUtils.collectionToDelimitedString(SCOPES, " "))
+                    .build()
+                    .toUri());
+        }));
     }
 
     private void checkAuthorizationRedirect() {
@@ -98,9 +108,7 @@ public class AuthorizationFilterTest {
         assertEquals("code", queryParams.getFirst("response_type"));
         assertEquals(CLIENT_ID, queryParams.getFirst("client_id"));
         Set<String> scopes = Set.of(requireNonNull(queryParams.getFirst("scope")).split("%20"));
-        Set<String> expectedScopes = new HashSet<>();
-        expectedScopes.add("openid");
-        expectedScopes.addAll(SCOPES);
+        Set<String> expectedScopes = new HashSet<>(SCOPES);
         assertEquals(expectedScopes, scopes);
     }
 
@@ -309,100 +317,4 @@ public class AuthorizationFilterTest {
                 .getInitialRequestUri().toString());
     }
 
-    @Test
-    public void shouldRedirectToAuthorizationPageIfPathMatchLogoutAndTokensNotFound() {
-        exchange = MockServerWebExchange.from(MockServerHttpRequest.get("https://gateway.com/sample-app/logout"));
-        exchange.getAttributes().put(GATEWAY_ROUTE_ATTR, route);
-
-        filter.filter(exchange, null).block();
-
-        checkAuthorizationRedirect();
-
-        assertNull(getContext());
-    }
-
-    private MockServerWebExchange getLogoutExchangeWithTokens(String uriTemplate) {
-        MockServerWebExchange e = MockServerWebExchange.from(MockServerHttpRequest.get(uriTemplate));
-        e.getAttributes().put(GATEWAY_ROUTE_ATTR, route);
-        e.getSession()
-                .doOnNext(session -> {
-                    Tokens tokens = new Tokens();
-                    AuthorizationContext context = new AuthorizationContext();
-                    ClientAuthorization clientAuthorization = new ClientAuthorization();
-                    clientAuthorization.setTokens(tokens);
-                    context.getClientAuthorizations().put(CLIENT_ID, clientAuthorization);
-                    session.getAttributes().put(GATEKEEPER_AUTHORIZATION_CONTEXT_ATTR, context);
-                })
-                .block();
-        return e;
-    }
-
-    private MockServerWebExchange getLogoutExchangeWithTokens() {
-        return getLogoutExchangeWithTokens("https://gateway.com/logout");
-    }
-
-    @Test
-    public void shouldRedirectToAuthorizationPageIfPathMatchLogoutTokensPresentAndSuccessLogoutRequest() {
-        when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
-
-        exchange = getLogoutExchangeWithTokens();
-
-        filter.filter(exchange, null).block();
-
-        checkAuthorizationRedirect();
-
-        assertNull(getContext());
-    }
-
-    @Test
-    public void shouldRedirectToAuthorizationPageIfPathMatchLogoutTokensPresentAndFailLogoutRequest() {
-        when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.error(new RuntimeException()));
-
-        exchange = getLogoutExchangeWithTokens();
-
-        filter.filter(exchange, null).block();
-
-        checkAuthorizationRedirect();
-
-        assertNull(getContext());
-    }
-
-    @Test
-    public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndSuccessLogoutRequest() {
-        when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.just(ClientResponse.create(HttpStatus.OK).build()));
-
-        exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);
-
-        filter.filter(exchange, null).block();
-
-        checkAfterLogoutRedirect();
-
-        assertNull(getContext());
-    }
-
-    @Test
-    public void shouldRedirectToCustomPageIfPathMatchLogoutTokensPresentAndFailLogoutRequest() {
-        when(tokenEndpointService.logout(any(), any())).thenReturn(Mono.error(new RuntimeException()));
-
-        exchange = getLogoutExchangeWithTokens("https://gateway.com/logout?end_url=" + END_URL_ENCODED);
-
-        filter.filter(exchange, null).block();
-
-        checkAfterLogoutRedirect();
-
-        assertNull(getContext());
-    }
-
-    private void checkAfterLogoutRedirect() {
-        ServerHttpResponse response = exchange.getResponse();
-        assertEquals(FOUND, response.getStatusCode());
-
-        String redirectUri = requireNonNull(response.getHeaders().getLocation()).toString();
-        assertTrue(redirectUri.startsWith(END_URL));
-
-        MultiValueMap<String, String> queryParams = UriComponentsBuilder.fromUriString(redirectUri)
-                .build()
-                .getQueryParams();
-        assertEquals(2, queryParams.size());
-    }
 }
