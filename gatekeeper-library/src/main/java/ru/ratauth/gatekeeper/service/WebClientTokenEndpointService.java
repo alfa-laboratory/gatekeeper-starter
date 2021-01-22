@@ -99,26 +99,32 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
 
     @Override
     public Mono<SignedJWT> checkAccessToken(Client client, BearerAccessToken accessToken) {
-        return webClient.post()
-                .uri(introspectionEndpointUri)
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .headers(headers -> headers.setBasicAuth(client.getId(), client.getPassword()))
-                .body(BodyInserters.fromFormData("token", accessToken.getValue()))
-                .exchange()
-                .flatMap(response -> {
-                    var type = new ParameterizedTypeReference<Map<String, Object>>() {
-                    };
-                    return response.bodyToMono(type);
-                })
-                .map(map -> {
-                    try {
-                        JSONObject jsonObject = new JSONObject(map);
-                        return SignedJWT.parse(jsonObject.getAsString("id_token"));
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        try {
+            return webClient.post()
+                    .uri(introspectionEndpointUri)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .headers(headers -> headers.setBasicAuth(client.getId(), client.getPassword()))
+                    .body(BodyInserters.fromFormData("token", accessToken.getValue()))
+                    .exchange()
+                    .flatMap(response -> {
+                        var type = new ParameterizedTypeReference<Map<String, Object>>() {
+                        };
+                        return response.bodyToMono(type);
+                    })
+                    .map(map -> {
+                        try {
+                            JSONObject jsonObject = new JSONObject(map);
+                            return SignedJWT.parse(jsonObject.getAsString("id_token"));
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+
+                    });
+        } catch (Exception e) {
+            log.info("No Valid JWT is found for the id_token.");
+            return Mono.error(e);
+        }
     }
 
     @Override
