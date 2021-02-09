@@ -72,7 +72,7 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
     }
 
     @Override
-    public Mono<BearerAccessToken> refreshAccessToken(Client client, RefreshToken refreshToken) {
+    public Mono<Tokens> refreshAccessToken(Client client, RefreshToken refreshToken) {
         return webClient.post()
                 .uri(tokenEndpointUri)
                 .accept(MediaType.APPLICATION_JSON)
@@ -90,7 +90,10 @@ public class WebClientTokenEndpointService implements TokenEndpointService {
                 .map(map -> {
                     JSONObject jsonObject = new JSONObject(map);
                     try {
-                        return BearerAccessToken.parse(jsonObject);
+                        Tokens tokens = new Tokens();
+                        tokens.setAccessToken(BearerAccessToken.parse(jsonObject));
+                        tokens.setRefreshToken(RefreshToken.parse(jsonObject));
+                        return tokens;
                     } catch (ParseException e) {
                         throw new RuntimeException(e);
                     }

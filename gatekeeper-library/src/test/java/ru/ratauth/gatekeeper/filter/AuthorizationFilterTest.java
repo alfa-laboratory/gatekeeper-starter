@@ -188,8 +188,9 @@ public class AuthorizationFilterTest {
 
     @Test
     public void shouldContinueChainIfExpirationTimeHasComeAndSuccessRefresh() {
-        BearerAccessToken newAccessToken = new BearerAccessToken();
-        when(tokenEndpointService.refreshAccessToken(any(), any())).thenReturn(Mono.just(newAccessToken));
+        Tokens newTokens = new Tokens();
+        newTokens.setAccessToken(new BearerAccessToken());
+        when(tokenEndpointService.refreshAccessToken(any(), any())).thenReturn(Mono.just(newTokens));
 
         Tokens tokens = new Tokens();
         exchange.getSession()
@@ -208,7 +209,7 @@ public class AuthorizationFilterTest {
         StepVerifier.create(filter.filter(exchange, chain))
                 .expectErrorMessage(NEXT_FILTER_EXCEPTION_MESSAGE)
                 .verify();
-        assertEquals(newAccessToken, tokens.getAccessToken());
+        assertEquals(newTokens.getAccessToken(), tokens.getAccessToken());
         assertNotEquals(NOT_EXPIRED_LAST_CHECK_TIME, tokens.getAccessTokenLastCheckTime());
     }
 
@@ -266,8 +267,9 @@ public class AuthorizationFilterTest {
     @Test
     public void shouldContinueChainIfCheckTokenTimeHasComeFailIntrospectAndSuccessRefresh() {
         when(tokenEndpointService.checkAccessToken(any(), any())).thenReturn(Mono.error(new RuntimeException()));
-        BearerAccessToken newAccessToken = new BearerAccessToken();
-        when(tokenEndpointService.refreshAccessToken(any(), any())).thenReturn(Mono.just(newAccessToken));
+        Tokens newTokens = new Tokens();
+        newTokens.setAccessToken(new BearerAccessToken());
+        when(tokenEndpointService.refreshAccessToken(any(), any())).thenReturn(Mono.just(newTokens));
 
         Tokens tokens = new Tokens();
         exchange.getSession()
@@ -286,7 +288,7 @@ public class AuthorizationFilterTest {
         StepVerifier.create(filter.filter(exchange, chain))
                 .expectErrorMessage(NEXT_FILTER_EXCEPTION_MESSAGE)
                 .verify();
-        assertEquals(newAccessToken, tokens.getAccessToken());
+        assertEquals(newTokens.getAccessToken(), tokens.getAccessToken());
         assertTrue(EXPIRED_LAST_CHECK_TIME.isBefore(tokens.getAccessTokenLastCheckTime()));
     }
 

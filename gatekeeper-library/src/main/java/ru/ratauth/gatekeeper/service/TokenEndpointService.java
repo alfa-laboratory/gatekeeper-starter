@@ -11,7 +11,7 @@ import ru.ratauth.gatekeeper.security.Tokens;
 public interface TokenEndpointService {
     Mono<Tokens> exchangeCodeForTokens(Client client, String code);
 
-    Mono<BearerAccessToken> refreshAccessToken(Client client, RefreshToken refreshToken);
+    Mono<Tokens> refreshAccessToken(Client client, RefreshToken refreshToken);
 
     Mono<SignedJWT> checkAccessToken(Client client, BearerAccessToken accessToken);
 

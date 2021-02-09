@@ -9,6 +9,7 @@ import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -23,6 +24,7 @@ import ru.ratauth.gatekeeper.service.TokenEndpointService;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -43,6 +45,7 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
     private final Map<String, Client> clients;
     private final TokenEndpointService tokenEndpointService;
     private final RedirectService redirectService;
+    private final List<String> ignored;
 
     public AuthorizationFilter(GatekeeperProperties properties,
                                TokenEndpointService tokenEndpointService,
@@ -52,6 +55,7 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
                 .collect(Collectors.toMap(Client::getId, c -> c));
         this.tokenEndpointService = tokenEndpointService;
         this.redirectService = redirectService;
+        this.ignored = properties.getIgnoredPatterns();
     }
 
     private static class AuthorizeResult {
@@ -66,10 +70,12 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        if (exchange.getRequest().getURI().getPath().contains("logout")) {
-            log.info("Ignore 'authorize' filter for 'logout' requests");
+        String requestPath = exchange.getRequest().getURI().getPath();
+        if (isIgnored(requestPath)) {
+            log.debug("Ignore 'authorize' filter for {} request", requestPath);
             return chain.filter(exchange);
         }
+
         log.debug("apply gatekeeper authorization filter");
         return authorize(exchange)
                 .flatMap(authorizeResult -> {
@@ -146,10 +152,12 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
         log.info("try to refresh access token");
         log.debug("refresh token {}", tokens.getRefreshToken().getValue());
         return tokenEndpointService.refreshAccessToken(client, tokens.getRefreshToken())
-                .map(accessToken -> {
+                .map(newTokens -> {
                     log.debug("success refresh token");
-                    log.debug("new access token {}", tokens.getAccessToken().getValue());
-                    tokens.setAccessToken(accessToken);
+                    log.debug("new access token {}", newTokens.getAccessToken().getValue());
+                    log.debug("new refresh token {}", newTokens.getRefreshToken().getValue());
+                    tokens.setAccessToken(newTokens.getAccessToken());
+                    tokens.setRefreshToken(newTokens.getRefreshToken());
                     tokens.setAccessTokenLastCheckTime(Instant.now());
                     return new AuthorizeResult(true, client);
                 })
@@ -194,6 +202,9 @@ public class AuthorizationFilter implements GlobalFilter, Ordered {
         });
     }
 
-
+    private boolean isIgnored(String requestPath) {
+        return ignored.stream()
+                .anyMatch(path -> new AntPathMatcher().match(path, requestPath));
+    }
 
 }
